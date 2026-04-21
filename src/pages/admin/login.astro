@@ -1,0 +1,69 @@
+---
+import ShopLayout from "../../layouts/ShopLayout.astro";
+---
+
+<ShopLayout title="Admin login">
+  <main class="cart-shell">
+    <h1 class="shop-title">Admin login</h1>
+
+    <div class="cart-panel">
+      <div class="cart-panel-inner">
+        <p class="muted" style="margin-bottom: 20px;">
+          Log in met je admin e-mailadres. Je krijgt een magic link in je mailbox.
+        </p>
+
+        <form id="admin-login-form">
+          <div class="field">
+            <label for="email">E-mailadres</label>
+            <input id="email" name="email" type="email" required />
+          </div>
+
+          <button type="submit" class="shop-button">Magic link versturen</button>
+        </form>
+
+        <p id="login-message" class="muted" style="margin-top: 16px;"></p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    import { supabase } from "../../lib/supabase";
+
+    const form = document.getElementById("admin-login-form");
+    const message = document.getElementById("login-message");
+
+    if (form instanceof HTMLFormElement) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const formData = new FormData(form);
+        const email = String(formData.get("email") || "").trim();
+
+        if (!email) {
+          if (message) message.textContent = "Vul eerst een e-mailadres in.";
+          return;
+        }
+
+        if (message) message.textContent = "Magic link wordt verstuurd...";
+
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/admin`,
+            shouldCreateUser: false
+          }
+        });
+
+        if (error) {
+          if (message) message.textContent = error.message;
+          return;
+        }
+
+        if (message) {
+          message.textContent =
+            "Gelukt. Check je mailbox en klik op de magic link.";
+        }
+      });
+    }
+  </script>
+</ShopLayout>

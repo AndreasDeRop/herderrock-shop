@@ -1,0 +1,25 @@
+---
+import ShopLayout from "../layouts/ShopLayout.astro";
+---
+
+<ShopLayout title="Betaling gelukt">
+  <main class="cart-shell">
+    <h1 class="shop-title">Betaling gelukt</h1>
+
+    <div class="cart-panel">
+      <div class="cart-panel-inner">
+        <p>Bedankt voor je bestelling.</p>
+        <p class="muted">
+          Je betaling is ontvangen. Je krijgt later nog verdere info voor afhaling of levering.
+        </p>
+        <br />
+        <a class="shop-button" href="/">Terug naar shop</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    localStorage.removeItem("cart");
+    localStorage.removeItem("checkoutDraft");
+  </script>
+</ShopLayout>

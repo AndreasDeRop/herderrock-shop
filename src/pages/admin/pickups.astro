@@ -1,0 +1,575 @@
+---
+import ShopLayout from "../../layouts/ShopLayout.astro";
+---
+
+<ShopLayout title="Admin afhalingen">
+  <main class="cart-shell">
+    <div
+      style="display:flex; justify-content:space-between; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom: 20px;"
+    >
+      <h1 class="shop-title" style="margin-bottom:0;">Afhalingen</h1>
+
+<div style="display:flex; gap:12px; flex-wrap:wrap;">
+  <a href="/admin" class="shop-button-secondary">Dashboard</a>
+  <a href="/admin/orders" class="shop-button-secondary">Volledige bestellingen</a>
+  <a href="/admin/products" class="shop-button-secondary">Producten</a>
+  <a href="/admin/deliveries" class="shop-button-secondary">Leveringen</a>
+  <button id="logout-button" class="shop-button-secondary">Uitloggen</button>
+</div>
+    </div>
+
+    <div id="admin-status" class="shop-notice">Admin check bezig...</div>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <div
+          style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;"
+        >
+          <div class="field" style="margin-bottom:0;">
+            <label for="pickup-search">Zoeken</label>
+            <input
+              id="pickup-search"
+              type="text"
+              placeholder="Naam, e-mail of ordernummer"
+            />
+          </div>
+
+          <div class="field" style="margin-bottom:0;">
+            <label for="pickup-day-filter">Afhaaldag</label>
+            <select id="pickup-day-filter">
+              <option value="">Alle dagen</option>
+              <option value="2026-09-03">3 september</option>
+              <option value="2026-09-04">4 september</option>
+              <option value="2026-09-05">5 september</option>
+            </select>
+          </div>
+
+          <div class="field" style="margin-bottom:0;">
+            <label for="pickup-status-filter">Status</label>
+            <select id="pickup-status-filter">
+              <option value="">Alle pickup statussen</option>
+              <option value="paid">Betaald</option>
+              <option value="ready_for_pickup">Klaar voor afhaling</option>
+              <option value="picked_up">Afgehaald</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <button id="pickup-reset-filters" class="shop-button-secondary">
+            Filters wissen
+          </button>
+          <span id="pickup-results-count" class="muted">0 afhalingen</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <div id="pickup-summary-cards" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;"></div>
+      </div>
+    </section>
+  <section class="cart-panel" style="margin-bottom: 24px;">
+    <div class="cart-panel-inner">
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <button id="pickup-export-csv" class="shop-button-secondary">
+          Exporteer CSV
+        </button>
+        <button id="pickup-print-list" class="shop-button-secondary">
+          Print afhaallijst
+        </button>
+      </div>
+    </div>
+  </section>
+    <div id="pickup-root"></div>
+  </main>
+
+  <script>
+    import { supabase } from "../../lib/supabase";
+    import { downloadCsv, printTableDocument } from "../../lib/adminExport";
+    import { escapeHtml } from "../../lib/client-html";
+
+    const adminStatus = document.getElementById("admin-status");
+    const logoutButton = document.getElementById("logout-button");
+
+    const pickupSearch = document.getElementById("pickup-search");
+    const pickupDayFilter = document.getElementById("pickup-day-filter");
+    const pickupStatusFilter = document.getElementById("pickup-status-filter");
+    const pickupResetFilters = document.getElementById("pickup-reset-filters");
+    const pickupResultsCount = document.getElementById("pickup-results-count");
+    const pickupSummaryCards = document.getElementById("pickup-summary-cards");
+    const pickupRoot = document.getElementById("pickup-root");
+    const pickupExportCsvButton = document.getElementById("pickup-export-csv");
+    const pickupPrintListButton = document.getElementById("pickup-print-list");
+    let allPickupOrders = [];
+
+    const formatDate = (value) => {
+      if (!value) return "—";
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return "—";
+      }
+
+      return new Intl.DateTimeFormat("nl-BE", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
+    };
+
+    const formatPickupDate = (value) => {
+      if (!value) return "Onbekende datum";
+
+      const date = new Date(`${value}T00:00:00`);
+
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+
+      return new Intl.DateTimeFormat("nl-BE", {
+        dateStyle: "full",
+      }).format(date);
+    };
+
+    async function getAccessToken() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      return session?.access_token || null;
+    }
+
+    async function updateOrderStatus(orderId, status, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/orders/update-status", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          orderId,
+          status,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon status niet opslaan.");
+        return;
+      }
+
+      await loadPickupAdmin();
+    }
+    function getPickupExportRows(orders) {
+  return orders.map((order) => {
+    const items = (order.items || [])
+      .map(
+        (item) =>
+          `${item.product_name_snapshot} - ${item.variant_name_snapshot} x${item.quantity}`,
+      )
+      .join(" | ");
+
+    return [
+      order.order_number,
+      order.customer_name,
+      order.customer_email,
+      order.customer_phone || "",
+      order.pickup_slot?.pickup_date || "",
+      order.pickup_slot?.label || "",
+      order.status,
+      order.fulfilled_at || "",
+      items,
+    ];
+  });
+}
+
+function exportPickupCsv() {
+  const filtered = getFilteredPickupOrders();
+
+  downloadCsv(
+    "afhalingen.csv",
+    [
+      "Ordernummer",
+      "Naam",
+      "E-mail",
+      "Telefoon",
+      "Afhaaldatum",
+      "Afhaalmoment",
+      "Status",
+      "Verwerkt op",
+      "Items",
+    ],
+    getPickupExportRows(filtered),
+  );
+}
+
+function printPickupList() {
+  const filtered = getFilteredPickupOrders();
+
+  printTableDocument(
+    "Afhaallijst",
+    `Aantal afhalingen: ${filtered.length}`,
+    [
+      "Ordernummer",
+      "Naam",
+      "E-mail",
+      "Telefoon",
+      "Afhaaldatum",
+      "Afhaalmoment",
+      "Status",
+      "Verwerkt op",
+      "Items",
+    ],
+    getPickupExportRows(filtered),
+  );
+}
+    function renderSummaryCards(orders) {
+      if (!pickupSummaryCards) return;
+
+      const total = orders.length;
+      const paid = orders.filter((o) => o.status === "paid").length;
+      const ready = orders.filter((o) => o.status === "ready_for_pickup").length;
+      const picked = orders.filter((o) => o.status === "picked_up").length;
+
+      pickupSummaryCards.innerHTML = `
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>Totaal afhalingen</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${total}</span>
+        </div>
+
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>Betaald</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${paid}</span>
+        </div>
+
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>Klaar</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${ready}</span>
+        </div>
+
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>Afgehaald</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${picked}</span>
+        </div>
+      `;
+    }
+
+    function getFilteredPickupOrders() {
+      const searchValue =
+        pickupSearch instanceof HTMLInputElement
+          ? pickupSearch.value.trim().toLowerCase()
+          : "";
+
+      const selectedDay =
+        pickupDayFilter instanceof HTMLSelectElement ? pickupDayFilter.value : "";
+
+      const selectedStatus =
+        pickupStatusFilter instanceof HTMLSelectElement
+          ? pickupStatusFilter.value
+          : "";
+
+      return allPickupOrders.filter((order) => {
+        const matchesSearch =
+          !searchValue ||
+          order.order_number?.toLowerCase().includes(searchValue) ||
+          order.customer_name?.toLowerCase().includes(searchValue) ||
+          order.customer_email?.toLowerCase().includes(searchValue);
+
+        const matchesDay =
+          !selectedDay || order.pickup_slot?.pickup_date === selectedDay;
+
+        const matchesStatus =
+          !selectedStatus || order.status === selectedStatus;
+
+        return matchesSearch && matchesDay && matchesStatus;
+      });
+    }
+
+    function updateResultsCount(count) {
+      if (!pickupResultsCount) return;
+      pickupResultsCount.textContent = `${count} afhaling${count === 1 ? "" : "en"}`;
+    }
+
+    function getQuickActions(order) {
+      const actions = [];
+
+      if (order.status === "paid") {
+        actions.push({ label: "Klaar", status: "ready_for_pickup" });
+      }
+
+      if (order.status === "paid" || order.status === "ready_for_pickup") {
+        actions.push({ label: "Afgehaald", status: "picked_up" });
+      }
+
+      return actions;
+    }
+
+    function renderPickupOrders(orders) {
+      if (!pickupRoot) return;
+
+      if (!orders.length) {
+        pickupRoot.innerHTML = `
+          <div class="cart-panel">
+            <div class="cart-panel-inner">
+              Geen afhalingen gevonden voor deze filters.
+            </div>
+          </div>
+        `;
+        updateResultsCount(0);
+        return;
+      }
+
+      updateResultsCount(orders.length);
+
+      const grouped = orders.reduce((acc, order) => {
+        const key = order.pickup_slot?.pickup_date || "zonder-datum";
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(order);
+        return acc;
+      }, {});
+
+      const sortedKeys = Object.keys(grouped).sort();
+
+      pickupRoot.innerHTML = sortedKeys
+        .map((dateKey) => {
+          const dayOrders = grouped[dateKey];
+
+          const rows = dayOrders
+            .map((order) => {
+              const items = (order.items || [])
+                .map(
+                  (item) =>
+                    `${escapeHtml(item.product_name_snapshot)} — ${escapeHtml(item.variant_name_snapshot)} x${item.quantity}`
+                )
+                .join("<br />");
+
+              const quickActions = getQuickActions(order)
+                .map(
+                  (action) => `
+                    <button
+                      class="shop-button"
+                      data-quick-order="${order.id}"
+                      data-quick-status="${action.status}"
+                      style="padding: 8px 12px;"
+                    >
+                      ${action.label}
+                    </button>
+                  `
+                )
+                .join("");
+
+              return `
+                <div style="border-top:1px solid rgba(249, 238, 213, 0.2); padding:16px 0;">
+                  <div style="display:grid; gap:8px;">
+                    <strong>${escapeHtml(order.customer_name)}</strong>
+                    <span>${escapeHtml(order.order_number)}</span>
+                    <span class="muted">${escapeHtml(order.customer_email)}</span>
+                    <span>Status: ${escapeHtml(order.status)}</span>
+                    <span>Verwerkt op: ${formatDate(order.fulfilled_at)}</span>
+                    <div>${items}</div>
+                  </div>
+
+                  ${
+                    quickActions
+                      ? `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">${quickActions}</div>`
+                      : ""
+                  }
+                </div>
+              `;
+            })
+            .join("");
+
+          return `
+            <section class="cart-panel" style="margin-bottom:24px;">
+              <div class="cart-panel-inner">
+                <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+                  <strong style="font-size:1.1rem;">${formatPickupDate(dateKey)}</strong>
+                  <span class="muted">${dayOrders.length} afhaling${dayOrders.length === 1 ? "" : "en"}</span>
+                </div>
+                ${rows}
+              </div>
+            </section>
+          `;
+        })
+        .join("");
+
+      pickupRoot.querySelectorAll("[data-quick-order]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const orderId = button.getAttribute("data-quick-order");
+          const status = button.getAttribute("data-quick-status");
+
+          if (!orderId || !status) return;
+
+          await updateOrderStatus(orderId, status, button);
+        });
+      });
+    }
+
+    function applyFiltersAndRender() {
+      const filtered = getFilteredPickupOrders();
+      renderPickupOrders(filtered);
+    }
+
+    async function loadPickupAdmin() {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (pickupRoot) {
+        pickupRoot.innerHTML = "";
+      }
+
+      if (adminStatus) {
+        adminStatus.textContent = "Admin check bezig...";
+      }
+
+      const meResponse = await fetch("/api/admin/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (meResponse.status === 401) {
+        await supabase.auth.signOut();
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (meResponse.status === 403) {
+        if (adminStatus) {
+          adminStatus.textContent = "Je account heeft geen adminrechten.";
+        }
+        return;
+      }
+
+      if (!meResponse.ok) {
+        let errorText = `Admin check mislukt (${meResponse.status}).`;
+
+        try {
+          const err = await meResponse.json();
+          if (err?.error) {
+            errorText += ` ${err.error}`;
+          }
+        } catch {}
+
+        if (adminStatus) {
+          adminStatus.textContent = errorText;
+        }
+        return;
+      }
+
+      const meResult = await meResponse.json();
+
+      if (adminStatus) {
+        adminStatus.textContent = `Ingelogd als ${meResult.user.email}`;
+      }
+
+      const ordersResponse = await fetch("/api/admin/orders", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!ordersResponse.ok) {
+        let errorText = `Kon afhalingen niet laden (${ordersResponse.status}).`;
+
+        try {
+          const err = await ordersResponse.json();
+          if (err?.error) {
+            errorText += ` ${err.error}`;
+          }
+        } catch {}
+
+        if (pickupRoot) {
+          pickupRoot.innerHTML = `
+            <div class="cart-panel">
+              <div class="cart-panel-inner">${escapeHtml(errorText)}</div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      const { orders } = await ordersResponse.json();
+
+      allPickupOrders = (orders || []).filter(
+        (order) => order.fulfillment_type === "pickup"
+      );
+
+      renderSummaryCards(allPickupOrders);
+      applyFiltersAndRender();
+    }
+
+    if (logoutButton) {
+      logoutButton.addEventListener("click", async () => {
+        await supabase.auth.signOut();
+        window.location.href = "/admin/login";
+      });
+    }
+
+    if (pickupSearch instanceof HTMLInputElement) {
+      pickupSearch.addEventListener("input", applyFiltersAndRender);
+    }
+
+    if (pickupDayFilter instanceof HTMLSelectElement) {
+      pickupDayFilter.addEventListener("change", applyFiltersAndRender);
+    }
+
+    if (pickupStatusFilter instanceof HTMLSelectElement) {
+      pickupStatusFilter.addEventListener("change", applyFiltersAndRender);
+    }
+
+    if (pickupResetFilters instanceof HTMLButtonElement) {
+      pickupResetFilters.addEventListener("click", () => {
+        if (pickupSearch instanceof HTMLInputElement) {
+          pickupSearch.value = "";
+        }
+
+        if (pickupDayFilter instanceof HTMLSelectElement) {
+          pickupDayFilter.value = "";
+        }
+
+        if (pickupStatusFilter instanceof HTMLSelectElement) {
+          pickupStatusFilter.value = "";
+        }
+        applyFiltersAndRender();
+      });
+    }
+
+    if (pickupExportCsvButton instanceof HTMLButtonElement) {
+      pickupExportCsvButton.addEventListener("click", exportPickupCsv);
+    }
+
+    if (pickupPrintListButton instanceof HTMLButtonElement) {
+      pickupPrintListButton.addEventListener("click", printPickupList);
+    }
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) {
+        loadPickupAdmin();
+      }
+    });
+
+    loadPickupAdmin();
+  </script>
+</ShopLayout>

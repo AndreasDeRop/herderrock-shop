@@ -1,0 +1,730 @@
+---
+import ShopLayout from "../../layouts/ShopLayout.astro";
+---
+
+<ShopLayout title="Admin bestellingen">
+  <main class="cart-shell">
+    <div
+      style="display:flex; justify-content:space-between; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom: 20px;"
+    >
+      <h1 class="shop-title" style="margin-bottom:0;">Bestellingen</h1>
+
+<div style="display:flex; gap:12px; flex-wrap:wrap;">
+  <a href="/admin" class="shop-button-secondary">Dashboard</a>
+  <a href="/admin/products" class="shop-button-secondary">Producten</a>
+  <a href="/admin/pickups" class="shop-button-secondary">Afhalingen</a>
+  <a href="/admin/deliveries" class="shop-button-secondary">Leveringen</a>
+  <button id="logout-button" class="shop-button-secondary">Uitloggen</button>
+</div>
+    </div>
+
+    <div id="admin-status" class="shop-notice">Admin check bezig...</div>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <div
+          id="admin-summary-cards"
+          style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;"
+        ></div>
+      </div>
+    </section>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <div
+          style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;"
+        >
+          <div class="field" style="margin-bottom:0;">
+            <label for="search-filter">Zoeken</label>
+            <input
+              id="search-filter"
+              type="text"
+              placeholder="Naam, e-mail of ordernummer"
+            />
+          </div>
+
+          <div class="field" style="margin-bottom:0;">
+            <label for="status-filter">Status</label>
+            <select id="status-filter">
+              <option value="">Alle statussen</option>
+            </select>
+          </div>
+
+          <div class="field" style="margin-bottom:0;">
+            <label for="fulfillment-filter">Type</label>
+            <select id="fulfillment-filter">
+              <option value="">Alles</option>
+              <option value="pickup">Afhaling</option>
+              <option value="delivery">Levering</option>
+            </select>
+          </div>
+
+          <div class="field" style="margin-bottom:0;">
+            <label for="pickup-date-filter">Afhaaldatum</label>
+            <select id="pickup-date-filter">
+              <option value="">Alle afhaaldatums</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <button id="reset-filters-button" class="shop-button-secondary">
+            Filters wissen
+          </button>
+          <span id="results-count" class="muted">0 bestellingen</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <button class="shop-button-secondary" data-preset="all">Alles</button>
+          <button class="shop-button-secondary" data-preset="paid-pickups">Betaalde afhalingen</button>
+          <button class="shop-button-secondary" data-preset="paid-deliveries">Betaalde leveringen</button>
+          <button class="shop-button-secondary" data-preset="open-actions">Open acties</button>
+          <button class="shop-button-secondary" data-preset="pickup-2026-09-03">Afhaling 3 sep</button>
+          <button class="shop-button-secondary" data-preset="pickup-2026-09-04">Afhaling 4 sep</button>
+          <button class="shop-button-secondary" data-preset="pickup-2026-09-05">Afhaling 5 sep</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="orders-root"></div>
+  </main>
+
+  <script>
+    import { supabase } from "../../lib/supabase";
+    import { escapeHtml } from "../../lib/client-html";
+
+    const statusEl = document.getElementById("admin-status");
+    const ordersRoot = document.getElementById("orders-root");
+    const logoutButton = document.getElementById("logout-button");
+
+    const searchFilter = document.getElementById("search-filter");
+    const statusFilter = document.getElementById("status-filter");
+    const fulfillmentFilter = document.getElementById("fulfillment-filter");
+    const pickupDateFilter = document.getElementById("pickup-date-filter");
+    const resetFiltersButton = document.getElementById("reset-filters-button");
+    const resultsCount = document.getElementById("results-count");
+    const summaryCardsRoot = document.getElementById("admin-summary-cards");
+    const presetButtons = document.querySelectorAll("[data-preset]");
+
+    const statusOptions = [
+      "pending_payment",
+      "paid",
+      "ready_for_pickup",
+      "picked_up",
+      "out_for_delivery",
+      "delivered",
+      "cancelled",
+    ];
+
+    let allOrders = [];
+
+    const formatPrice = (cents) =>
+      new Intl.NumberFormat("nl-BE", {
+        style: "currency",
+        currency: "EUR",
+      }).format((cents || 0) / 100);
+
+    const formatDate = (value) => {
+      if (!value) return "—";
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return "—";
+      }
+
+      return new Intl.DateTimeFormat("nl-BE", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
+    };
+
+    const formatPickupDateValue = (value) => {
+      if (!value) return "—";
+
+      const date = new Date(`${value}T00:00:00`);
+
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+
+      return new Intl.DateTimeFormat("nl-BE", {
+        dateStyle: "medium",
+      }).format(date);
+    };
+
+    async function getAccessToken() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      return session?.access_token || null;
+    }
+
+    async function updateOrderStatus(orderId, status, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/orders/update-status", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          orderId,
+          status,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon status niet opslaan.");
+        return;
+      }
+
+      await loadAdmin();
+    }
+
+    function fillStaticFilterOptions() {
+      if (!(statusFilter instanceof HTMLSelectElement)) return;
+
+      if (statusFilter.options.length > 1) return;
+
+      statusOptions.forEach((status) => {
+        const option = document.createElement("option");
+        option.value = status;
+        option.textContent = status;
+        statusFilter.appendChild(option);
+      });
+    }
+
+    function fillPickupDateOptions(orders) {
+      if (!(pickupDateFilter instanceof HTMLSelectElement)) return;
+
+      const currentValue = pickupDateFilter.value;
+
+      const uniqueDates = [
+        ...new Set(
+          orders
+            .map((order) => order.pickup_slot?.pickup_date)
+            .filter(Boolean)
+        ),
+      ].sort();
+
+      pickupDateFilter.innerHTML = `<option value="">Alle afhaaldatums</option>`;
+
+      uniqueDates.forEach((dateValue) => {
+        const option = document.createElement("option");
+        option.value = dateValue;
+        option.textContent = formatPickupDateValue(dateValue);
+        pickupDateFilter.appendChild(option);
+      });
+
+      pickupDateFilter.value = uniqueDates.includes(currentValue) ? currentValue : "";
+    }
+
+    function getOpenPickupOrders(orders) {
+      return orders.filter(
+        (order) =>
+          order.fulfillment_type === "pickup" &&
+          ["paid", "ready_for_pickup"].includes(order.status)
+      );
+    }
+
+    function getOpenDeliveryOrders(orders) {
+      return orders.filter(
+        (order) =>
+          order.fulfillment_type === "delivery" &&
+          ["paid", "out_for_delivery"].includes(order.status)
+      );
+    }
+
+    function renderSummaryCards(orders) {
+      if (!summaryCardsRoot) return;
+
+      const totalOrders = orders.length;
+      const paidOrders = orders.filter((order) => order.status === "paid").length;
+      const openPickups = getOpenPickupOrders(orders).length;
+      const openDeliveries = getOpenDeliveryOrders(orders).length;
+
+      summaryCardsRoot.innerHTML = `
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>Totaal</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${totalOrders}</span>
+        </div>
+
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>Betaald</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${paidOrders}</span>
+        </div>
+
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>Open afhalingen</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${openPickups}</span>
+        </div>
+
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>Open leveringen</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${openDeliveries}</span>
+        </div>
+      `;
+    }
+
+    function getFilteredOrders() {
+      const searchValue =
+        searchFilter instanceof HTMLInputElement
+          ? searchFilter.value.trim().toLowerCase()
+          : "";
+
+      const selectedStatus =
+        statusFilter instanceof HTMLSelectElement ? statusFilter.value : "";
+
+      const selectedFulfillment =
+        fulfillmentFilter instanceof HTMLSelectElement
+          ? fulfillmentFilter.value
+          : "";
+
+      const selectedPickupDate =
+        pickupDateFilter instanceof HTMLSelectElement
+          ? pickupDateFilter.value
+          : "";
+
+      return allOrders.filter((order) => {
+        const matchesSearch =
+          !searchValue ||
+          order.order_number?.toLowerCase().includes(searchValue) ||
+          order.customer_name?.toLowerCase().includes(searchValue) ||
+          order.customer_email?.toLowerCase().includes(searchValue);
+
+        const matchesStatus =
+          !selectedStatus || order.status === selectedStatus;
+
+        const matchesFulfillment =
+          !selectedFulfillment ||
+          order.fulfillment_type === selectedFulfillment;
+
+        const matchesPickupDate =
+          !selectedPickupDate ||
+          order.pickup_slot?.pickup_date === selectedPickupDate;
+
+        return (
+          matchesSearch &&
+          matchesStatus &&
+          matchesFulfillment &&
+          matchesPickupDate
+        );
+      });
+    }
+
+    function updateResultsCount(count) {
+      if (!resultsCount) return;
+      resultsCount.textContent = `${count} bestelling${count === 1 ? "" : "en"}`;
+    }
+
+    function getQuickActions(order) {
+      const actions = [];
+
+      if (order.fulfillment_type === "pickup") {
+        if (order.status === "paid") {
+          actions.push({ label: "Klaar voor afhaling", status: "ready_for_pickup" });
+        }
+
+        if (order.status === "paid" || order.status === "ready_for_pickup") {
+          actions.push({ label: "Afgehaald", status: "picked_up" });
+        }
+      }
+
+      if (order.fulfillment_type === "delivery") {
+        if (order.status === "paid") {
+          actions.push({ label: "Onderweg", status: "out_for_delivery" });
+        }
+
+        if (order.status === "paid" || order.status === "out_for_delivery") {
+          actions.push({ label: "Geleverd", status: "delivered" });
+        }
+      }
+
+      if (order.status !== "cancelled" && order.status !== "picked_up" && order.status !== "delivered") {
+        actions.push({ label: "Annuleren", status: "cancelled" });
+      }
+
+      return actions;
+    }
+
+    function renderOrders(orders) {
+      if (!ordersRoot) return;
+
+      if (!orders.length) {
+        ordersRoot.innerHTML = `
+          <div class="cart-panel">
+            <div class="cart-panel-inner">
+              Geen bestellingen gevonden voor deze filters.
+            </div>
+          </div>
+        `;
+        updateResultsCount(0);
+        return;
+      }
+
+      updateResultsCount(orders.length);
+
+      ordersRoot.innerHTML = orders
+        .map((order) => {
+          const itemsHtml = (order.items || [])
+            .map(
+              (item) => `
+                <div class="cart-row">
+                  <strong>${escapeHtml(item.product_name_snapshot)}</strong><br />
+                  <span>${escapeHtml(item.variant_name_snapshot)}</span><br />
+                  <span class="muted">Aantal: ${item.quantity}</span><br />
+                  <span>${formatPrice(item.line_total_cents)}</span>
+                </div>
+              `
+            )
+            .join("");
+
+          const statusSelectOptions = statusOptions
+            .map(
+              (status) => `
+                <option value="${status}" ${order.status === status ? "selected" : ""}>
+                  ${status}
+                </option>
+              `
+            )
+            .join("");
+
+          const quickActionsHtml = getQuickActions(order)
+            .map(
+              (action) => `
+                <button
+                  class="shop-button"
+                  data-quick-order="${order.id}"
+                  data-quick-status="${action.status}"
+                  style="padding: 10px 14px;"
+                >
+                  ${action.label}
+                </button>
+              `
+            )
+            .join("");
+
+          return `
+            <section class="cart-panel" style="margin-bottom: 24px;">
+              <div class="cart-panel-inner">
+                <div style="display:grid; gap:8px; margin-bottom:20px;">
+                  <strong>Ordernummer: ${escapeHtml(order.order_number)}</strong>
+                  <span>Status: ${escapeHtml(order.status)}</span>
+                  <span>Aangemaakt: ${formatDate(order.created_at)}</span>
+                  <span>Betaald op: ${formatDate(order.paid_at)}</span>
+                  <span>Verwerkt op: ${formatDate(order.fulfilled_at)}</span>
+                </div>
+
+                <div style="display:grid; gap:8px; margin-bottom:20px;">
+                  <strong>Klant</strong>
+                  <span>${escapeHtml(order.customer_name)}</span>
+                  <span>${escapeHtml(order.customer_email)}</span>
+                  <span>${escapeHtml(order.customer_phone || "Geen telefoonnummer")}</span>
+                </div>
+
+                <div style="display:grid; gap:8px; margin-bottom:20px;">
+                  <strong>${order.fulfillment_type === "pickup" ? "Afhaling" : "Levering"}</strong>
+                  <span>${escapeHtml(order.fulfillment_label)}</span>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                  <strong>Items</strong>
+                  ${itemsHtml}
+                </div>
+
+                <div style="display:grid; gap:8px; margin-bottom:20px;">
+                  <span>Subtotaal: ${formatPrice(order.subtotal_cents)}</span>
+                  <span>Levering: ${formatPrice(order.delivery_fee_cents)}</span>
+                  <strong>Totaal: ${formatPrice(order.total_cents)}</strong>
+                </div>
+
+                ${
+                  quickActionsHtml
+                    ? `
+                  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:20px;">
+                    ${quickActionsHtml}
+                  </div>
+                `
+                    : ""
+                }
+
+                <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                  <select data-order-status="${order.id}" style="min-width: 220px;">
+                    ${statusSelectOptions}
+                  </select>
+                  <button class="shop-button-secondary" data-update-order="${order.id}">
+                    Status opslaan
+                  </button>
+                </div>
+              </div>
+            </section>
+          `;
+        })
+        .join("");
+
+      ordersRoot.querySelectorAll("[data-update-order]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const orderId = button.getAttribute("data-update-order");
+          const select = ordersRoot.querySelector(
+            `[data-order-status="${orderId}"]`
+          );
+
+          if (!orderId || !(select instanceof HTMLSelectElement)) {
+            return;
+          }
+
+          await updateOrderStatus(orderId, select.value, button);
+        });
+      });
+
+      ordersRoot.querySelectorAll("[data-quick-order]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const orderId = button.getAttribute("data-quick-order");
+          const status = button.getAttribute("data-quick-status");
+
+          if (!orderId || !status) {
+            return;
+          }
+
+          await updateOrderStatus(orderId, status, button);
+        });
+      });
+    }
+
+    function applyFiltersAndRender() {
+      const filteredOrders = getFilteredOrders();
+      renderOrders(filteredOrders);
+    }
+
+    function applyPreset(preset) {
+      if (searchFilter instanceof HTMLInputElement) {
+        searchFilter.value = "";
+      }
+
+      if (statusFilter instanceof HTMLSelectElement) {
+        statusFilter.value = "";
+      }
+
+      if (fulfillmentFilter instanceof HTMLSelectElement) {
+        fulfillmentFilter.value = "";
+      }
+
+      if (pickupDateFilter instanceof HTMLSelectElement) {
+        pickupDateFilter.value = "";
+      }
+
+      if (preset === "all") {
+        applyFiltersAndRender();
+        return;
+      }
+
+      if (preset === "paid-pickups") {
+        if (statusFilter instanceof HTMLSelectElement) statusFilter.value = "paid";
+        if (fulfillmentFilter instanceof HTMLSelectElement) fulfillmentFilter.value = "pickup";
+      }
+
+      if (preset === "paid-deliveries") {
+        if (statusFilter instanceof HTMLSelectElement) statusFilter.value = "paid";
+        if (fulfillmentFilter instanceof HTMLSelectElement) fulfillmentFilter.value = "delivery";
+      }
+
+      if (preset === "open-actions") {
+        const openOrders = allOrders.filter(
+          (order) =>
+            (order.fulfillment_type === "pickup" &&
+              ["paid", "ready_for_pickup"].includes(order.status)) ||
+            (order.fulfillment_type === "delivery" &&
+              ["paid", "out_for_delivery"].includes(order.status))
+        );
+
+        renderOrders(openOrders);
+        updateResultsCount(openOrders.length);
+        return;
+      }
+
+      if (preset.startsWith("pickup-")) {
+        const pickupDate = preset.replace("pickup-", "");
+        if (fulfillmentFilter instanceof HTMLSelectElement) fulfillmentFilter.value = "pickup";
+        if (pickupDateFilter instanceof HTMLSelectElement) pickupDateFilter.value = pickupDate;
+      }
+
+      applyFiltersAndRender();
+    }
+
+    async function loadAdmin() {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (ordersRoot) {
+        ordersRoot.innerHTML = "";
+      }
+
+      if (statusEl) {
+        statusEl.textContent = "Admin check bezig...";
+      }
+
+      const meResponse = await fetch("/api/admin/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (meResponse.status === 401) {
+        await supabase.auth.signOut();
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (meResponse.status === 403) {
+        if (statusEl) {
+          statusEl.textContent = "Je account heeft geen adminrechten.";
+        }
+        return;
+      }
+
+      if (!meResponse.ok) {
+        let errorText = `Admin check mislukt (${meResponse.status}).`;
+
+        try {
+          const err = await meResponse.json();
+          if (err?.error) {
+            errorText += ` ${err.error}`;
+          }
+        } catch {}
+
+        if (statusEl) {
+          statusEl.textContent = errorText;
+        }
+        return;
+      }
+
+      const meResult = await meResponse.json();
+
+      if (statusEl) {
+        statusEl.textContent = `Ingelogd als ${meResult.user.email}`;
+      }
+
+      const ordersResponse = await fetch("/api/admin/orders", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!ordersResponse.ok) {
+        let errorText = `Kon bestellingen niet laden (${ordersResponse.status}).`;
+
+        try {
+          const err = await ordersResponse.json();
+          if (err?.error) {
+            errorText += ` ${err.error}`;
+          }
+        } catch {}
+
+        if (ordersRoot) {
+          ordersRoot.innerHTML = `
+            <div class="cart-panel">
+              <div class="cart-panel-inner">${escapeHtml(errorText)}</div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      const { orders } = await ordersResponse.json();
+
+      allOrders = orders || [];
+      renderSummaryCards(allOrders);
+      fillPickupDateOptions(allOrders);
+      applyFiltersAndRender();
+    }
+
+    if (logoutButton) {
+      logoutButton.addEventListener("click", async () => {
+        await supabase.auth.signOut();
+        window.location.href = "/admin/login";
+      });
+    }
+
+    if (searchFilter instanceof HTMLInputElement) {
+      searchFilter.addEventListener("input", applyFiltersAndRender);
+    }
+
+    if (statusFilter instanceof HTMLSelectElement) {
+      statusFilter.addEventListener("change", applyFiltersAndRender);
+    }
+
+    if (fulfillmentFilter instanceof HTMLSelectElement) {
+      fulfillmentFilter.addEventListener("change", applyFiltersAndRender);
+    }
+
+    if (pickupDateFilter instanceof HTMLSelectElement) {
+      pickupDateFilter.addEventListener("change", applyFiltersAndRender);
+    }
+
+    if (resetFiltersButton instanceof HTMLButtonElement) {
+      resetFiltersButton.addEventListener("click", () => {
+        if (searchFilter instanceof HTMLInputElement) {
+          searchFilter.value = "";
+        }
+
+        if (statusFilter instanceof HTMLSelectElement) {
+          statusFilter.value = "";
+        }
+
+        if (fulfillmentFilter instanceof HTMLSelectElement) {
+          fulfillmentFilter.value = "";
+        }
+
+        if (pickupDateFilter instanceof HTMLSelectElement) {
+          pickupDateFilter.value = "";
+        }
+
+        applyFiltersAndRender();
+      });
+    }
+
+    presetButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const preset = button.getAttribute("data-preset");
+        if (!preset) return;
+        applyPreset(preset);
+      });
+    });
+
+    fillStaticFilterOptions();
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) {
+        loadAdmin();
+      }
+    });
+
+    loadAdmin();
+  </script>
+</ShopLayout>

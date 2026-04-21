@@ -1,0 +1,49 @@
+---
+import type { Product } from "../lib/shop";
+import { formatPrice, isShopClosed } from "../lib/shop";
+
+interface Props {
+  product: Product;
+}
+
+const { product } = Astro.props;
+const closed = isShopClosed();
+
+const cheapestVariant = [...(product.variants ?? [])].sort(
+  (a, b) => a.price_cents - b.price_cents
+)[0];
+
+const primaryImage =
+  product.images?.[0]?.image_url ||
+  product.image_url ||
+  "/images/tshirt-placeholder.jpg";
+---
+
+<article class="shop-card">
+  <div class="shop-card-image-wrap">
+    <img
+      class="shop-card-image"
+      src={primaryImage}
+      alt={product.name}
+    />
+  </div>
+
+  <div class="shop-card-body">
+    <h2>{product.name}</h2>
+    <p>{product.description}</p>
+
+    {cheapestVariant && (
+      <span class="shop-card-price">
+        Vanaf {formatPrice(cheapestVariant.price_cents)}
+      </span>
+    )}
+
+    <div class="shop-card-actions">
+      {closed ? (
+        <span class="shop-button-secondary">Webshop gesloten</span>
+      ) : (
+        <a class="shop-button" href={`/producten/${product.slug}`}>Bekijk product</a>
+      )}
+    </div>
+  </div>
+</article>

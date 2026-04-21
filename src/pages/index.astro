@@ -1,11 +1,46 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+import ShopLayout from "../layouts/ShopLayout.astro";
+import ProductCard from "../components/ProductCard.astro";
+import { getActiveProducts, isShopClosed } from "../lib/shop";
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+let products = [];
+let productsError: string | null = null;
+
+try {
+  products = await getActiveProducts();
+} catch (error) {
+  productsError =
+    error instanceof Error ? error.message : "Kon producten niet laden.";
+}
+
+const closed = isShopClosed();
 ---
 
-<Layout>
-	<Welcome />
-</Layout>
+<ShopLayout title="Herderrock Shop" showHero={true}>
+  <main class="shop-shell">
+    <h1 class="shop-title">Shop</h1>
+
+    {closed && (
+      <div class="shop-notice">
+        De webshop is gesloten. Bestellen kon tot en met 15 augustus.
+      </div>
+    )}
+
+    {!closed && (
+      <div class="shop-notice">
+        Afhalen kan op 3, 4 of 5 september om 19u. Levering enkel in 9300, 9308,
+        9310 en 9320.
+      </div>
+    )}
+
+    {productsError && (
+      <div class="shop-notice">
+        {productsError}
+      </div>
+    )}
+
+    <div class="shop-grid">
+      {products.map((product) => <ProductCard product={product} />)}
+    </div>
+  </main>
+</ShopLayout>

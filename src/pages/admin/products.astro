@@ -1,0 +1,1310 @@
+---
+import ShopLayout from "../../layouts/ShopLayout.astro";
+---
+
+<ShopLayout title="Admin producten">
+  <main class="cart-shell">
+    <div
+      style="display:flex; justify-content:space-between; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom: 20px;"
+    >
+      <h1 class="shop-title" style="margin-bottom:0;">Producten & stock</h1>
+
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+    <a href="/admin" class="shop-button-secondary">Dashboard</a>
+    <a href="/admin/orders" class="shop-button-secondary">Bestellingen</a>
+    <a href="/admin/pickups" class="shop-button-secondary">Afhalingen</a>
+    <a href="/admin/deliveries" class="shop-button-secondary">Leveringen</a>
+    <button id="logout-button" class="shop-button-secondary">Uitloggen</button>
+    </div>
+    </div>
+
+    <div id="admin-status" class="shop-notice">Admin check bezig...</div>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <div class="field" style="margin-bottom:0;">
+          <label for="product-search">Zoeken</label>
+          <input id="product-search" type="text" placeholder="Zoek op productnaam of maat" />
+        </div>
+      </div>
+    </section>
+    <section class="cart-panel" style="margin-bottom: 24px;">
+  <div class="cart-panel-inner">
+    <strong>Nieuw product toevoegen</strong>
+
+    <div
+      style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:16px;"
+    >
+      <div class="field" style="margin-bottom:0;">
+        <label for="new-product-name">Naam</label>
+        <input id="new-product-name" type="text" placeholder="Bijv. Timeless Pet" />
+      </div>
+
+      <div class="field" style="margin-bottom:0;">
+        <label for="new-product-slug">Slug</label>
+        <input id="new-product-slug" type="text" placeholder="Bijv. timeless-pet" />
+      </div>
+
+      <div class="field" style="margin-bottom:0;">
+        <label for="new-product-image">Hoofdafbeelding</label>
+        <input id="new-product-image" type="text" placeholder="/images/shop/..." />
+      </div>
+
+      <div class="field" style="margin-bottom:0;">
+        <label for="new-product-active">Actief</label>
+        <select id="new-product-active">
+          <option value="true" selected>Ja</option>
+          <option value="false">Nee</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:12px;">
+      <label for="new-product-description">Beschrijving</label>
+      <textarea
+        id="new-product-description"
+        rows="3"
+        placeholder="Korte productbeschrijving"
+        style="width:100%;"
+      ></textarea>
+    </div>
+
+    <div style="margin-top:20px; padding-top:16px; border-top:2px solid rgba(249, 238, 213, 0.2);">
+      <strong>Eerste variant</strong>
+
+      <div
+        style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:12px;"
+      >
+        <div class="field" style="margin-bottom:0;">
+          <label for="new-product-create-variant">Variant meteen toevoegen</label>
+          <select id="new-product-create-variant">
+            <option value="true" selected>Ja</option>
+            <option value="false">Nee</option>
+          </select>
+        </div>
+
+        <div class="field" style="margin-bottom:0;">
+          <label for="new-product-variant-label">Variant label</label>
+          <input id="new-product-variant-label" type="text" placeholder="Bijv. Medium" />
+        </div>
+
+        <div class="field" style="margin-bottom:0;">
+          <label for="new-product-variant-size">Maat</label>
+          <input id="new-product-variant-size" type="text" placeholder="Bijv. M" />
+        </div>
+
+        <div class="field" style="margin-bottom:0;">
+          <label for="new-product-variant-price">Prijs (€)</label>
+          <input id="new-product-variant-price" type="number" min="0" step="0.01" value="0.00" />
+        </div>
+
+        <div class="field" style="margin-bottom:0;">
+          <label for="new-product-variant-stock">Stock</label>
+          <input id="new-product-variant-stock" type="number" min="0" value="0" />
+        </div>
+
+        <div class="field" style="margin-bottom:0;">
+          <label for="new-product-variant-kids">Kind</label>
+          <select id="new-product-variant-kids">
+            <option value="false" selected>Nee</option>
+            <option value="true">Ja</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <button id="create-product-button" class="shop-button">
+        Product aanmaken
+      </button>
+    </div>
+  </div>
+</section>
+    <div id="products-root"></div>
+  </main>
+
+  <script>
+    import { supabase } from "../../lib/supabase";
+    import { escapeHtml } from "../../lib/client-html";
+
+    const adminStatus = document.getElementById("admin-status");
+    const logoutButton = document.getElementById("logout-button");
+    const productSearch = document.getElementById("product-search");
+    const productsRoot = document.getElementById("products-root");
+    const newProductName = document.getElementById("new-product-name");
+    const newProductSlug = document.getElementById("new-product-slug");
+    const newProductImage = document.getElementById("new-product-image");
+    const newProductActive = document.getElementById("new-product-active");
+    const newProductDescription = document.getElementById("new-product-description");
+    const newProductCreateVariant = document.getElementById("new-product-create-variant");
+    const newProductVariantLabel = document.getElementById("new-product-variant-label");
+    const newProductVariantSize = document.getElementById("new-product-variant-size");
+    const newProductVariantPrice = document.getElementById("new-product-variant-price");
+    const newProductVariantStock = document.getElementById("new-product-variant-stock");
+    const newProductVariantKids = document.getElementById("new-product-variant-kids");
+    const createProductButton = document.getElementById("create-product-button");
+    let allProducts = [];
+
+    const formatPrice = (cents) =>
+      new Intl.NumberFormat("nl-BE", {
+        style: "currency",
+        currency: "EUR",
+      }).format((cents || 0) / 100);
+
+    async function getAccessToken() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      return session?.access_token || null;
+    }
+
+    async function updateStock(variantId, stockQuantity, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/update-stock", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          variantId,
+          stockQuantity,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon stock niet opslaan.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function toggleProductActive(productId, isActive, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/toggle-active", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          productId,
+          isActive,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon productstatus niet opslaan.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function toggleVariantActive(variantId, isActive, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/toggle-variant-active", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          variantId,
+          isActive,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon variantstatus niet opslaan.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function updatePrice(variantId, priceCents, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/update-price", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          variantId,
+          priceCents,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon prijs niet opslaan.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function addVariant(payload, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/add-variant", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon variant niet toevoegen.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function deleteVariant(variantId, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/delete-variant", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          variantId,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon variant niet verwijderen.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function addImage(payload, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/add-image", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon afbeelding niet toevoegen.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function deleteImage(imageId, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/delete-image", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          imageId,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon afbeelding niet verwijderen.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function updateImageOrder(imageId, sortOrder, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/update-image-order", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          imageId,
+          sortOrder,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon afbeeldingsvolgorde niet opslaan.");
+        return false;
+      }
+
+      return true;
+    }
+
+    function getFilteredProducts() {
+      const searchValue =
+        productSearch instanceof HTMLInputElement
+          ? productSearch.value.trim().toLowerCase()
+          : "";
+
+      if (!searchValue) {
+        return allProducts;
+      }
+
+      return allProducts
+        .map((product) => ({
+          ...product,
+          variants: (product.variants || []).filter(
+            (variant) =>
+              product.name?.toLowerCase().includes(searchValue) ||
+              variant.label?.toLowerCase().includes(searchValue) ||
+              variant.size?.toLowerCase().includes(searchValue)
+          ),
+        }))
+        .filter(
+          (product) =>
+            product.variants?.length ||
+            product.name?.toLowerCase().includes(searchValue)
+        );
+    }
+
+    function renderProducts(products) {
+      if (!productsRoot) return;
+
+      if (!products.length) {
+        productsRoot.innerHTML = `
+          <div class="cart-panel">
+            <div class="cart-panel-inner">
+              Geen producten gevonden.
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      productsRoot.innerHTML = products
+        .map((product) => {
+          const primaryImage =
+            product.images?.[0]?.image_url ||
+            product.image_url ||
+            "/images/tshirt-placeholder.jpg";
+          const safePrimaryImage = escapeHtml(primaryImage);
+          const safeProductName = escapeHtml(product.name);
+          const safeProductSlug = escapeHtml(product.slug);
+
+          const imagesHtml = (product.images || [])
+            .map((image) => {
+              const safeImageUrl = escapeHtml(image.image_url);
+              const safeImageAlt = escapeHtml(image.alt_text || product.name);
+              const safeImageLabel = escapeHtml(image.alt_text || "Geen alt-tekst");
+
+              return `
+                <div
+                  style="display:grid; grid-template-columns: 90px 1fr 110px auto auto; gap:12px; align-items:end; padding:12px 0; border-top:1px solid rgba(249, 238, 213, 0.2);"
+                >
+                  <img
+                    src="${safeImageUrl}"
+                    alt="${safeImageAlt}"
+                    style="width:90px; height:90px; object-fit:cover; border:2px solid var(--black); background:var(--white);"
+                  />
+
+                  <div>
+                    <strong>${safeImageLabel}</strong><br />
+                    <span class="muted">${safeImageUrl}</span>
+                  </div>
+
+                  <div class="field" style="margin-bottom:0;">
+                    <label for="image-order-${image.id}">Volgorde</label>
+                    <input
+                      id="image-order-${image.id}"
+                      type="number"
+                      min="0"
+                      value="${image.sort_order}"
+                      data-image-order-input="${image.id}"
+                    />
+                  </div>
+
+                  <div>
+                    <button
+                      class="shop-button-secondary"
+                      data-save-image-order="${image.id}"
+                    >
+                      Opslaan
+                    </button>
+                  </div>
+
+                  <div>
+                    <button
+                      class="shop-button-secondary"
+                      data-delete-image="${image.id}"
+                    >
+                      Verwijderen
+                    </button>
+                  </div>
+                </div>
+              `
+            })
+            .join("");
+
+          const variantsHtml = (product.variants || [])
+            .map((variant) => {
+              const safeVariantLabel = escapeHtml(variant.label);
+              const safeVariantSize = escapeHtml(variant.size);
+
+              return `
+                <div
+                  style="display:grid; grid-template-columns: minmax(120px, 1fr) minmax(110px, 130px) minmax(110px, 130px) auto auto auto auto; gap:12px; align-items:end; padding:12px 0; border-top:1px solid rgba(249, 238, 213, 0.2);"
+                >
+                  <div>
+                    <strong>${safeVariantLabel}</strong><br />
+                    <span class="muted">${safeVariantSize}</span><br />
+                    <span class="muted">${variant.is_active ? "Actief" : "Inactief"}</span>
+                  </div>
+
+                  <div class="field" style="margin-bottom:0;">
+                    <label for="price-${variant.id}">Prijs (€)</label>
+                    <input
+                      id="price-${variant.id}"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value="${(variant.price_cents / 100).toFixed(2)}"
+                      data-price-input="${variant.id}"
+                    />
+                  </div>
+
+                  <div class="field" style="margin-bottom:0;">
+                    <label for="stock-${variant.id}">Stock</label>
+                    <input
+                      id="stock-${variant.id}"
+                      type="number"
+                      min="0"
+                      value="${variant.stock_quantity}"
+                      data-stock-input="${variant.id}"
+                    />
+                  </div>
+
+                  <div>
+                    <button
+                      class="shop-button-secondary"
+                      data-save-price="${variant.id}"
+                    >
+                      Prijs opslaan
+                    </button>
+                  </div>
+
+                  <div>
+                    <button
+                      class="shop-button-secondary"
+                      data-save-stock="${variant.id}"
+                    >
+                      Stock opslaan
+                    </button>
+                  </div>
+
+                  <div>
+                    <button
+                      class="shop-button-secondary"
+                      data-toggle-variant="${variant.id}"
+                      data-next-variant-active="${variant.is_active ? "false" : "true"}"
+                    >
+                      ${variant.is_active ? "Maat uitschakelen" : "Maat activeren"}
+                    </button>
+                  </div>
+
+                  <div>
+                    <button
+                      class="shop-button-secondary"
+                      data-delete-variant="${variant.id}"
+                    >
+                      Verwijderen
+                    </button>
+                  </div>
+                </div>
+              `
+            })
+            .join("");
+
+          return `
+            <section class="cart-panel" style="margin-bottom:24px;">
+              <div class="cart-panel-inner">
+                <div style="display:grid; grid-template-columns: 120px 1fr; gap:20px; align-items:start;">
+                  <img
+                    src="${safePrimaryImage}"
+                    alt="${safeProductName}"
+                    style="width:120px; height:120px; object-fit:cover; border:2px solid var(--black); background:var(--white);"
+                  />
+
+                  <div>
+                    <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:start;">
+                      <div>
+                        <strong style="font-size:1.15rem;">${safeProductName}</strong><br />
+                        <span class="muted">${safeProductSlug}</span><br />
+                        <span class="muted">
+                          ${product.is_active ? "Actief" : "Inactief"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <button
+                          class="shop-button-secondary"
+                          data-toggle-product="${product.id}"
+                          data-next-active="${product.is_active ? "false" : "true"}"
+                        >
+                          ${product.is_active ? "Product uitschakelen" : "Product activeren"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top:24px; padding-top:16px; border-top:2px solid rgba(249, 238, 213, 0.2);">
+                  <strong>Afbeeldingen</strong>
+
+                  <div style="margin-top:12px;">
+                    ${imagesHtml || `<div class="muted">Geen afbeeldingen gevonden.</div>`}
+                  </div>
+
+                  <div style="margin-top:20px; display:grid; grid-template-columns: minmax(200px, 1fr) minmax(180px, 1fr) minmax(100px, 120px) auto; gap:12px; align-items:end;">
+                    <div class="field" style="margin-bottom:0;">
+                      <label for="new-image-url-${product.id}">Image URL / pad</label>
+                      <input
+                        id="new-image-url-${product.id}"
+                        type="text"
+                        placeholder="/images/shop/..."
+                        data-new-image-url="${product.id}"
+                      />
+                    </div>
+
+                    <div class="field" style="margin-bottom:0;">
+                      <label for="new-image-alt-${product.id}">Alt-tekst</label>
+                      <input
+                        id="new-image-alt-${product.id}"
+                        type="text"
+                        placeholder="Beschrijving"
+                        data-new-image-alt="${product.id}"
+                      />
+                    </div>
+
+                    <div class="field" style="margin-bottom:0;">
+                      <label for="new-image-order-${product.id}">Volgorde</label>
+                      <input
+                        id="new-image-order-${product.id}"
+                        type="number"
+                        min="0"
+                        value="${(product.images || []).length}"
+                        data-new-image-order="${product.id}"
+                      />
+                    </div>
+
+                    <div>
+                      <button class="shop-button" data-add-image="${product.id}">
+                        Afbeelding toevoegen
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top:24px; padding-top:16px; border-top:2px solid rgba(249, 238, 213, 0.2);">
+                  <strong>Varianten</strong>
+
+                  <div style="margin-top:12px;">
+                    ${variantsHtml || `<div class="muted">Geen varianten gevonden.</div>`}
+                  </div>
+
+                  <div style="margin-top:24px; padding-top:16px; border-top:2px solid rgba(249, 238, 213, 0.2);">
+                    <strong>Nieuwe maat toevoegen</strong>
+
+                    <div
+                      style="display:grid; grid-template-columns: minmax(120px, 1fr) minmax(90px, 120px) minmax(110px, 130px) minmax(110px, 130px) minmax(100px, 120px) auto; gap:12px; align-items:end; margin-top:12px;"
+                    >
+                      <div class="field" style="margin-bottom:0;">
+                        <label for="new-label-${product.id}">Label</label>
+                        <input id="new-label-${product.id}" type="text" data-new-label="${product.id}" placeholder="Bijv. Medium" />
+                      </div>
+
+                      <div class="field" style="margin-bottom:0;">
+                        <label for="new-size-${product.id}">Maat</label>
+                        <input id="new-size-${product.id}" type="text" data-new-size="${product.id}" placeholder="Bijv. M" />
+                      </div>
+
+                      <div class="field" style="margin-bottom:0;">
+                        <label for="new-price-${product.id}">Prijs (€)</label>
+                        <input id="new-price-${product.id}" type="number" min="0" step="0.01" data-new-price="${product.id}" value="0.00" />
+                      </div>
+
+                      <div class="field" style="margin-bottom:0;">
+                        <label for="new-stock-${product.id}">Stock</label>
+                        <input id="new-stock-${product.id}" type="number" min="0" data-new-stock="${product.id}" value="0" />
+                      </div>
+
+                      <div class="field" style="margin-bottom:0;">
+                        <label for="new-kids-${product.id}">Kind</label>
+                        <select id="new-kids-${product.id}" data-new-kids="${product.id}">
+                          <option value="false" selected>Nee</option>
+                          <option value="true">Ja</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <button class="shop-button" data-add-variant="${product.id}">
+                          Variant toevoegen
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          `;
+        })
+        .join("");
+
+      productsRoot.querySelectorAll("[data-save-image-order]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const imageId = button.getAttribute("data-save-image-order");
+          const input = productsRoot.querySelector(`[data-image-order-input="${imageId}"]`);
+
+          if (!imageId || !(input instanceof HTMLInputElement)) {
+            return;
+          }
+
+          const sortOrder = Number(input.value);
+
+          if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+            alert("Volgorde moet een geheel getal van 0 of hoger zijn.");
+            return;
+          }
+
+          const ok = await updateImageOrder(imageId, sortOrder, button);
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-delete-image]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const imageId = button.getAttribute("data-delete-image");
+
+          if (!imageId) {
+            return;
+          }
+
+          const confirmed = window.confirm("Deze afbeelding verwijderen?");
+          if (!confirmed) {
+            return;
+          }
+
+          const ok = await deleteImage(imageId, button);
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-add-image]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const productId = button.getAttribute("data-add-image");
+
+          if (!productId) {
+            return;
+          }
+
+          const imageUrlInput = productsRoot.querySelector(`[data-new-image-url="${productId}"]`);
+          const altInput = productsRoot.querySelector(`[data-new-image-alt="${productId}"]`);
+          const orderInput = productsRoot.querySelector(`[data-new-image-order="${productId}"]`);
+
+          if (
+            !(imageUrlInput instanceof HTMLInputElement) ||
+            !(altInput instanceof HTMLInputElement) ||
+            !(orderInput instanceof HTMLInputElement)
+          ) {
+            return;
+          }
+
+          const imageUrl = imageUrlInput.value.trim();
+          const altText = altInput.value.trim();
+          const sortOrder = Number(orderInput.value);
+
+          if (!imageUrl) {
+            alert("Image URL of pad is verplicht.");
+            return;
+          }
+
+          if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+            alert("Volgorde moet een geheel getal van 0 of hoger zijn.");
+            return;
+          }
+
+          const ok = await addImage(
+            {
+              productId,
+              imageUrl,
+              altText,
+              sortOrder,
+            },
+            button
+          );
+
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-save-price]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const variantId = button.getAttribute("data-save-price");
+          const input = productsRoot.querySelector(`[data-price-input="${variantId}"]`);
+
+          if (!variantId || !(input instanceof HTMLInputElement)) {
+            return;
+          }
+
+          const euroValue = Number(input.value);
+
+          if (!Number.isFinite(euroValue) || euroValue < 0) {
+            alert("Prijs moet 0 of hoger zijn.");
+            return;
+          }
+
+          const priceCents = Math.round(euroValue * 100);
+
+          const ok = await updatePrice(variantId, priceCents, button);
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-save-stock]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const variantId = button.getAttribute("data-save-stock");
+          const input = productsRoot.querySelector(`[data-stock-input="${variantId}"]`);
+
+          if (!variantId || !(input instanceof HTMLInputElement)) {
+            return;
+          }
+
+          const stockQuantity = Number(input.value);
+
+          if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
+            alert("Stock moet een geheel getal van 0 of hoger zijn.");
+            return;
+          }
+
+          const ok = await updateStock(variantId, stockQuantity, button);
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-toggle-variant]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const variantId = button.getAttribute("data-toggle-variant");
+          const nextActiveValue = button.getAttribute("data-next-variant-active");
+
+          if (!variantId || !nextActiveValue) {
+            return;
+          }
+
+          const isActive = nextActiveValue === "true";
+
+          const ok = await toggleVariantActive(variantId, isActive, button);
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-delete-variant]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const variantId = button.getAttribute("data-delete-variant");
+
+          if (!variantId) {
+            return;
+          }
+
+          const confirmed = window.confirm("Deze variant verwijderen?");
+          if (!confirmed) {
+            return;
+          }
+
+          const ok = await deleteVariant(variantId, button);
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-toggle-product]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const productId = button.getAttribute("data-toggle-product");
+          const nextActiveValue = button.getAttribute("data-next-active");
+
+          if (!productId || !nextActiveValue) {
+            return;
+          }
+
+          const isActive = nextActiveValue === "true";
+
+          const ok = await toggleProductActive(productId, isActive, button);
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-add-variant]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const productId = button.getAttribute("data-add-variant");
+
+          if (!productId) {
+            return;
+          }
+
+          const labelInput = productsRoot.querySelector(`[data-new-label="${productId}"]`);
+          const sizeInput = productsRoot.querySelector(`[data-new-size="${productId}"]`);
+          const priceInput = productsRoot.querySelector(`[data-new-price="${productId}"]`);
+          const stockInput = productsRoot.querySelector(`[data-new-stock="${productId}"]`);
+          const kidsInput = productsRoot.querySelector(`[data-new-kids="${productId}"]`);
+
+          if (
+            !(labelInput instanceof HTMLInputElement) ||
+            !(sizeInput instanceof HTMLInputElement) ||
+            !(priceInput instanceof HTMLInputElement) ||
+            !(stockInput instanceof HTMLInputElement) ||
+            !(kidsInput instanceof HTMLSelectElement)
+          ) {
+            return;
+          }
+
+          const label = labelInput.value.trim();
+          const size = sizeInput.value.trim();
+          const euroValue = Number(priceInput.value);
+          const stockQuantity = Number(stockInput.value);
+          const isKids = kidsInput.value === "true";
+
+          if (!label || !size) {
+            alert("Label en maat zijn verplicht.");
+            return;
+          }
+
+          if (!Number.isFinite(euroValue) || euroValue < 0) {
+            alert("Prijs moet 0 of hoger zijn.");
+            return;
+          }
+
+          if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
+            alert("Stock moet een geheel getal van 0 of hoger zijn.");
+            return;
+          }
+
+          const ok = await addVariant(
+            {
+              productId,
+              label,
+              size,
+              color: "zwart",
+              isKids,
+              isActive: true,
+              stockQuantity,
+              priceCents: Math.round(euroValue * 100),
+            },
+            button
+          );
+
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+    }
+
+    function applyFiltersAndRender() {
+      renderProducts(getFilteredProducts());
+    }
+async function addProduct(payload, buttonToDisable = null) {
+  const accessToken = await getAccessToken();
+
+  if (!accessToken) {
+    window.location.href = "/admin/login";
+    return false;
+  }
+
+  if (buttonToDisable instanceof HTMLButtonElement) {
+    buttonToDisable.disabled = true;
+  }
+
+  const response = await fetch("/api/admin/products/add-product", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json().catch(() => null);
+
+  if (buttonToDisable instanceof HTMLButtonElement) {
+    buttonToDisable.disabled = false;
+  }
+
+  if (!response.ok) {
+    alert(result?.error || "Kon product niet aanmaken.");
+    return false;
+  }
+
+  return true;
+}
+    async function loadProductsAdmin() {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (productsRoot) {
+        productsRoot.innerHTML = "";
+      }
+
+      if (adminStatus) {
+        adminStatus.textContent = "Admin check bezig...";
+      }
+
+      const meResponse = await fetch("/api/admin/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (meResponse.status === 401) {
+        await supabase.auth.signOut();
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (meResponse.status === 403) {
+        if (adminStatus) {
+          adminStatus.textContent = "Je account heeft geen adminrechten.";
+        }
+        return;
+      }
+
+      if (!meResponse.ok) {
+        let errorText = `Admin check mislukt (${meResponse.status}).`;
+
+        try {
+          const err = await meResponse.json();
+          if (err?.error) {
+            errorText += ` ${err.error}`;
+          }
+        } catch {}
+
+        if (adminStatus) {
+          adminStatus.textContent = errorText;
+        }
+        return;
+      }
+
+      const meResult = await meResponse.json();
+
+      if (adminStatus) {
+        adminStatus.textContent = `Ingelogd als ${meResult.user.email}`;
+      }
+
+      const productsResponse = await fetch("/api/admin/products", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!productsResponse.ok) {
+        let errorText = `Kon producten niet laden (${productsResponse.status}).`;
+
+        try {
+          const err = await productsResponse.json();
+          if (err?.error) {
+            errorText += ` ${err.error}`;
+          }
+        } catch {}
+
+        if (productsRoot) {
+          productsRoot.innerHTML = `
+            <div class="cart-panel">
+              <div class="cart-panel-inner">${escapeHtml(errorText)}</div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      const { products } = await productsResponse.json();
+      allProducts = products || [];
+      applyFiltersAndRender();
+    }
+
+    if (logoutButton) {
+      logoutButton.addEventListener("click", async () => {
+        await supabase.auth.signOut();
+        window.location.href = "/admin/login";
+      });
+    }
+
+    if (productSearch instanceof HTMLInputElement) {
+      productSearch.addEventListener("input", applyFiltersAndRender);
+    }
+    if (createProductButton instanceof HTMLButtonElement) {
+  createProductButton.addEventListener("click", async () => {
+    if (
+      !(newProductName instanceof HTMLInputElement) ||
+      !(newProductSlug instanceof HTMLInputElement) ||
+      !(newProductImage instanceof HTMLInputElement) ||
+      !(newProductActive instanceof HTMLSelectElement) ||
+      !(newProductDescription instanceof HTMLTextAreaElement) ||
+      !(newProductCreateVariant instanceof HTMLSelectElement) ||
+      !(newProductVariantLabel instanceof HTMLInputElement) ||
+      !(newProductVariantSize instanceof HTMLInputElement) ||
+      !(newProductVariantPrice instanceof HTMLInputElement) ||
+      !(newProductVariantStock instanceof HTMLInputElement) ||
+      !(newProductVariantKids instanceof HTMLSelectElement)
+    ) {
+      return;
+    }
+
+    const name = newProductName.value.trim();
+    const slug = newProductSlug.value.trim();
+    const imageUrl = newProductImage.value.trim();
+    const description = newProductDescription.value.trim();
+    const isActive = newProductActive.value === "true";
+
+    const createFirstVariant = newProductCreateVariant.value === "true";
+    const variantLabel = newProductVariantLabel.value.trim();
+    const variantSize = newProductVariantSize.value.trim();
+    const variantPriceEuro = Number(newProductVariantPrice.value);
+    const variantStockQuantity = Number(newProductVariantStock.value);
+    const variantIsKids = newProductVariantKids.value === "true";
+
+    if (!name) {
+      alert("Productnaam is verplicht.");
+      return;
+    }
+
+    if (createFirstVariant) {
+      if (!variantLabel || !variantSize) {
+        alert("Voor de eerste variant zijn label en maat verplicht.");
+        return;
+      }
+
+      if (!Number.isFinite(variantPriceEuro) || variantPriceEuro < 0) {
+        alert("Variantprijs moet 0 of hoger zijn.");
+        return;
+      }
+
+      if (!Number.isInteger(variantStockQuantity) || variantStockQuantity < 0) {
+        alert("Variantstock moet een geheel getal van 0 of hoger zijn.");
+        return;
+      }
+    }
+
+    const ok = await addProduct(
+      {
+        name,
+        slug,
+        description,
+        imageUrl,
+        isActive,
+        createFirstVariant,
+        variantLabel,
+        variantSize,
+        variantColor: "zwart",
+        variantIsKids,
+        variantIsActive: true,
+        variantStockQuantity,
+        variantPriceCents: Math.round((Number.isFinite(variantPriceEuro) ? variantPriceEuro : 0) * 100),
+      },
+      createProductButton
+    );
+
+    if (ok) {
+      newProductName.value = "";
+      newProductSlug.value = "";
+      newProductImage.value = "";
+      newProductDescription.value = "";
+      newProductActive.value = "true";
+      newProductCreateVariant.value = "true";
+      newProductVariantLabel.value = "";
+      newProductVariantSize.value = "";
+      newProductVariantPrice.value = "0.00";
+      newProductVariantStock.value = "0";
+      newProductVariantKids.value = "false";
+
+      await loadProductsAdmin();
+    }
+  });
+}
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) {
+        loadProductsAdmin();
+      }
+    });
+
+    loadProductsAdmin();
+  </script>
+</ShopLayout>
