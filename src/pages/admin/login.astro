@@ -31,7 +31,7 @@ import ShopLayout from "../../layouts/ShopLayout.astro";
 
     const form = document.getElementById("admin-login-form");
     const message = document.getElementById("login-message");
-
+const redirectTo = window.location.origin;
     if (form instanceof HTMLFormElement) {
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -48,10 +48,10 @@ import ShopLayout from "../../layouts/ShopLayout.astro";
 
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/admin`,
-            shouldCreateUser: false
-          }
+          options: {  
+            emailRedirectTo: redirectTo,
+            shouldCreateUser: true,
+          },
         });
 
         if (error) {
