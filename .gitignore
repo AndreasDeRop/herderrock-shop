@@ -19,6 +19,7 @@ pnpm-debug.log*
 .dev.vars
 .dev.vars*
 .wrangler/
+worker-configuration.d.ts
 # macOS-specific files
 .DS_Store
 

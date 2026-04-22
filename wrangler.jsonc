@@ -1,0 +1,19 @@
+{
+  "name": "herderrock-shop",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-04-21",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "vars": {
+    "SITE_URL": "https://shop.herderrock.be",
+    "PUBLIC_SUPABASE_URL": "https://cpibzcaictyyearlhzwh.supabase.co",
+    "PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_CD6y7ep2xeyDb3_fiVYP9g_SYQgqW1P",
+    "SHOP_CLOSES_AT": "2026-08-15T23:59:59+02:00",
+  },
+}

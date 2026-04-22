@@ -1,16 +1,6 @@
 ---
 import ShopLayout from "../../layouts/ShopLayout.astro";
-import { getActiveProducts, getProductBySlug, formatPrice, isShopClosed } from "../../lib/shop";
-
-export async function getStaticPaths() {
-  const products = await getActiveProducts();
-
-  return products.map((product) => ({
-    params: {
-      slug: product.slug,
-    },
-  }));
-}
+import { getProductBySlug, formatPrice, isShopClosed } from "../../lib/shop";
 
 const { slug } = Astro.params;
 
@@ -19,21 +9,29 @@ if (!slug) {
 }
 
 const product = await getProductBySlug(slug);
-
-if (!product) {
-  throw new Error("Product niet gevonden");
-}
-
 const closed = isShopClosed();
-const variants = product.variants ?? [];
-const images = product.images ?? [];
+const variants = product?.variants ?? [];
+const images = product?.images ?? [];
 const primaryImage =
   images[0]?.image_url ||
-  product.image_url ||
+  product?.image_url ||
   "/images/tshirt-placeholder.jpg";
+const pageTitle = product?.name ?? "Product niet gevonden";
+
+if (!product) {
+  Astro.response.status = 404;
+}
 ---
 
-<ShopLayout title={product.name}>
+<ShopLayout title={pageTitle}>
+  {!product ? (
+    <main class="shop-shell">
+      <h1 class="shop-title">Product niet gevonden</h1>
+      <div class="shop-notice">
+        Dit product bestaat niet meer of staat niet langer actief in de shop.
+      </div>
+    </main>
+  ) : (
   <section class="product-detail">
     <div class="product-visual-panel">
       <img
@@ -163,4 +161,5 @@ const primaryImage =
       });
     });
   </script>
+  )}
 </ShopLayout>

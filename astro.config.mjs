@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "astro/config";
+import cloudflare from "@astrojs/cloudflare";
 
 const astroPrerenderEntrypoint = fileURLToPath(
   import.meta.resolve("astro/entrypoints/prerender"),
@@ -10,6 +11,8 @@ const astroLegacyEntrypoint = fileURLToPath(
 
 export default defineConfig({
   site: "https://shop.herderrock.be",
+  output: "server",
+  adapter: cloudflare(),
   vite: {
     resolve: {
       alias: {

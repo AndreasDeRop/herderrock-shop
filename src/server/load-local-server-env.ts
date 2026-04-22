@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import type { ServerEnv } from "../../functions/_lib/create-checkout-response";
+import type { ServerEnv } from "./create-checkout-response";
 
 function parseEnvFile(filePath: string) {
   if (!existsSync(filePath)) {
