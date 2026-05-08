@@ -71,10 +71,6 @@ const { title, showHero = false } = Astro.props;
             <div class="shop-hero-content">
               <span class="shop-hero-kicker">Officiële merch</span>
               <h3>Draag Herderrock ook buiten het festival.</h3>
-              <p>
-                Bestel je officiële Herderrock merch! Afhalen kan op 3, 4 of 5 september om 19u,
-                levering enkel in regio Groot-Aalst.
-              </p>
             </div>
           </div>
         </div>
@@ -282,31 +278,47 @@ const { title, showHero = false } = Astro.props;
   .hamburger {
     cursor: pointer;
     display: flex;
-    flex-direction: column;
-    width: 30px;
-    height: 25px;
-    justify-content: space-between;
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    padding: 12px;
     background-color: var(--red);
-    padding: 16px;
+    flex: 0 0 auto;
   }
-
   .hamburger div {
+    position: absolute;
+    left: 50%;
     background-color: var(--white);
     height: 4px;
+    width: 28px;
     border-radius: 2px;
-    transition: transform 0.3s ease-in-out;
+    transform: translateX(-50%);
+    transition:
+      transform 0.3s ease-in-out,
+      top 0.3s ease-in-out,
+      opacity 0.2s ease-in-out;
   }
-
+  .hamburger div:nth-child(1) {
+    top: 16px;
+  }
+  .hamburger div:nth-child(2) {
+    top: 25px;
+  }
+  .hamburger div:nth-child(3) {
+    top: 34px;
+  }
   .hamburger.active div:nth-child(1) {
-    transform: rotate(45deg) translate(7.5px, 7.5px);
+    top: 25px;
+    transform: translateX(-50%) rotate(45deg);
   }
-
   .hamburger.active div:nth-child(2) {
     opacity: 0;
   }
-
   .hamburger.active div:nth-child(3) {
-    transform: rotate(-45deg) translate(7.5px, -7.5px);
+    top: 25px;
+    transform: translateX(-50%) rotate(-45deg);
   }
 
   .menu {
@@ -482,39 +494,46 @@ const { title, showHero = false } = Astro.props;
     gap: 24px;
   }
 
-  .shop-card {
-    background: var(--white);
-    border: var(--border-strong);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
+ .shop-card {
+  background: var(--primary-gray);
+  border: var(--border-strong);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
   .shop-card-image-wrap {
-    background: var(--red);
-    min-height: 320px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-bottom: var(--border-strong);
-  }
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--white);
+  border-bottom: var(--border-strong);
+  line-height: 0;
+}
 
-  .shop-card-image {
-    width: 100%;
-    height: 100%;
-    max-height: 360px;
-    object-fit: contain;
-    background: var(--white);
-  }
+ .shop-card-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  object-fit: cover;
+  object-position: center;
+}
 
-  .shop-card-body {
-    padding: 24px;
-    background: var(--primary-gray);
-    color: var(--white);
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-  }
+.shop-card-body {
+  padding: 24px;
+  background: var(--primary-gray);
+  color: var(--white);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
 
   .shop-card-body h2 {
     font-size: clamp(1.8rem, 3vw, 2.5rem);
@@ -765,19 +784,28 @@ const { title, showHero = false } = Astro.props;
     .product-image {
       border-width: 2px;
     }
+
+.shop-card-image-wrap {
+  aspect-ratio: 3 / 4;
+  min-height: 0;
+  padding: 0;
+}
   }
-  .product-thumbs {
+.product-thumbs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
 
+
 .product-thumb {
   padding: 0;
   border: 2px solid var(--black);
   background: var(--white);
   cursor: pointer;
+  overflow: hidden;
+  line-height: 0;
 }
 
 .product-thumb img {
@@ -785,5 +813,9 @@ const { title, showHero = false } = Astro.props;
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
+  object-position: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 </style>

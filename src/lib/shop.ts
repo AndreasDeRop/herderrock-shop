@@ -185,3 +185,79 @@ export async function getDeliveryZones(): Promise<DeliveryZone[]> {
 
   return data ?? [];
 }
+export type PostalCodeVillages = Record<string, string[]>;
+
+const splitDeliveryCities = (city: string | null | undefined) =>
+  String(city ?? "")
+    .split(/\s*[,;/]\s*/g)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+const normalizeDeliveryValue = (value: string) =>
+  value.trim().toLocaleLowerCase("nl-BE");
+
+export function getPostalCodeVillages(
+  deliveryZones: DeliveryZone[],
+): PostalCodeVillages {
+  const postalCodeVillages = deliveryZones.reduce((map, zone) => {
+    const postalCode = String(zone.postal_code).trim();
+    const cities = splitDeliveryCities(zone.city);
+
+    if (!postalCode) {
+      return map;
+    }
+
+    if (!map.has(postalCode)) {
+      map.set(postalCode, []);
+    }
+
+    const villages = map.get(postalCode);
+
+    for (const city of cities) {
+      if (villages && !villages.includes(city)) {
+        villages.push(city);
+      }
+    }
+
+    return map;
+  }, new Map<string, string[]>());
+
+  const result = Object.fromEntries(postalCodeVillages);
+
+  for (const villages of Object.values(result)) {
+    villages.sort((a, b) => a.localeCompare(b, "nl-BE"));
+  }
+
+  return result;
+}
+
+export function getAllowedPostalCodes(deliveryZones: DeliveryZone[]) {
+  return Object.keys(getPostalCodeVillages(deliveryZones)).sort((a, b) =>
+    a.localeCompare(b, "nl-BE", { numeric: true }),
+  );
+}
+
+export function getMatchingDeliveryZone(
+  deliveryZones: DeliveryZone[],
+  postalCode: string,
+  city: string,
+): DeliveryZone | null {
+  const normalizedPostalCode = String(postalCode).trim();
+  const normalizedCity = normalizeDeliveryValue(city);
+
+  return (
+    deliveryZones.find((zone) => {
+      const zonePostalCode = String(zone.postal_code).trim();
+
+      if (zonePostalCode !== normalizedPostalCode) {
+        return false;
+      }
+
+      const cities = splitDeliveryCities(zone.city).map((value) =>
+        normalizeDeliveryValue(value),
+      );
+
+      return cities.includes(normalizedCity);
+    }) ?? null
+  );
+}

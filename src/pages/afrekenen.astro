@@ -1,285 +1,285 @@
----
-import ShopLayout from "../layouts/ShopLayout.astro";
-import { getCheckoutData, formatDeliveryFee } from "../lib/checkout";
-import { isShopClosed } from "../lib/shop";
+  ---
+  import ShopLayout from "../layouts/ShopLayout.astro";
+  import { getCheckoutData } from "../lib/checkout";
+  import { getAllowedPostalCodes, getPostalCodeVillages, isShopClosed } from "../lib/shop";
 
-const { pickupSlots, deliveryZones } = await getCheckoutData();
-const closed = isShopClosed();
+  const { pickupSlots, deliveryZones } = await getCheckoutData();
+  const closed = isShopClosed();
 
-const postalCodeVillages: Record<string, string[]> = {
-  "9300": ["Aalst"],
-  "9308": ["Gijzegem", "Hofstade"],
-  "9310": ["Herdersem", "Moorsel", "Baardegem", "Meldert"],
-  "9320": ["Erembodegem", "Nieuwerkerken"],
-};
+  const postalCodeVillages = getPostalCodeVillages(deliveryZones);
+  const allowedPostalCodes = getAllowedPostalCodes(deliveryZones);
 
-const allowedPostalCodes = Object.keys(postalCodeVillages);
----
+  ---
 
-<ShopLayout title="Afrekenen">
-  <main class="cart-shell">
-    <h1 class="shop-title">Afrekenen</h1>
+  <ShopLayout title="Afrekenen">
+    <main class="cart-shell">
+      <h1 class="shop-title">Afrekenen</h1>
 
-    {closed ? (
-      <div class="shop-notice">
-        De webshop is gesloten. Bestellen kon tot en met 15 augustus.
-      </div>
-    ) : (
-      <div class="cart-panel">
-        <div class="cart-panel-inner">
-          <form id="checkout-form">
-            <div class="field">
-              <label for="customerName">Naam</label>
-              <input id="customerName" name="customerName" type="text" required />
-            </div>
-
-            <div class="field">
-              <label for="customerEmail">E-mail</label>
-              <input id="customerEmail" name="customerEmail" type="email" required />
-            </div>
-
-            <div class="field">
-              <label for="customerPhone">Telefoon</label>
-              <input id="customerPhone" name="customerPhone" type="tel" />
-            </div>
-
-            <div class="field">
-              <label for="fulfillmentType">Ontvangst</label>
-              <select id="fulfillmentType" name="fulfillmentType" required>
-                <option value="">Kies afhalen of levering</option>
-                <option value="pickup">Afhalen</option>
-                <option value="delivery">Levering</option>
-              </select>
-            </div>
-
-            <div id="pickup-fields" style="display:none;">
-              <div class="field">
-                <label for="pickupSlotId">Afhaaldatum</label>
-                <select id="pickupSlotId" name="pickupSlotId">
-                  <option value="">Kies een afhaaldatum</option>
-                  {pickupSlots.map((slot) => (
-                    <option value={slot.id}>{slot.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div id="delivery-fields" style="display:none;">
-              <div class="field">
-                <label for="addressLine1">Straat + huisnummer</label>
-                <input id="addressLine1" name="addressLine1" type="text" />
-              </div>
-
-              <div class="field">
-                <label for="postalCode">Postcode</label>
-                <select id="postalCode" name="postalCode">
-                  <option value="">Kies een postcode</option>
-                  {deliveryZones.map((zone) => (
-                    <option value={zone.postal_code} data-fee={zone.delivery_fee_cents}>
-                      {zone.postal_code} — {formatDeliveryFee(zone.delivery_fee_cents)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div class="field">
-                <label for="city">Deelgemeente</label>
-                <select id="city" name="city">
-                  <option value="">Kies eerst een postcode</option>
-                </select>
-              </div>
-            </div>
-
-            <div id="cart-summary" class="shop-notice" style="margin-top:24px;">
-              Winkelmandje wordt geladen...
-            </div>
-
-            <button type="submit" class="shop-button">Verder naar betaling</button>
-          </form>
+      {closed ? (
+        <div class="shop-notice">
+          De webshop is gesloten. Bestellen kon tot en met 15 augustus.
         </div>
-      </div>
-    )}
-  </main>
+      ) : (
+        <div class="cart-panel">
+          <div class="cart-panel-inner">
+            <form id="checkout-form">
+              <div class="field">
+                <label for="customerName">Naam</label>
+                <input id="customerName" name="customerName" type="text" required />
+              </div>
 
-  <script define:vars={{ deliveryZones, allowedPostalCodes, postalCodeVillages }}>
-    import { escapeHtml } from "../lib/client-html";
+              <div class="field">
+                <label for="customerEmail">E-mail</label>
+                <input id="customerEmail" name="customerEmail" type="email" required />
+              </div>
 
-    const fulfillmentType = document.getElementById("fulfillmentType");
-    const pickupFields = document.getElementById("pickup-fields");
-    const deliveryFields = document.getElementById("delivery-fields");
-    const postalCodeSelect = document.getElementById("postalCode");
-    const citySelect = document.getElementById("city");
-    const summary = document.getElementById("cart-summary");
-    const form = document.getElementById("checkout-form");
+              <div class="field">
+                <label for="customerPhone">Telefoon</label>
+                <input id="customerPhone" name="customerPhone" type="tel" />
+              </div>
 
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+              <div class="field">
+                <label for="fulfillmentType">Ontvangst</label>
+                <select id="fulfillmentType" name="fulfillmentType" required>
+                  <option value="">Kies afhalen of levering</option>
+                  <option value="pickup">Afhalen</option>
+                  <option value="delivery">Levering</option>
+                </select>
+              </div>
 
-    const formatPrice = (cents) =>
-      new Intl.NumberFormat("nl-BE", {
-        style: "currency",
-        currency: "EUR",
-      }).format(cents / 100);
+              <div id="pickup-fields" style="display:none;">
+                <div class="field">
+                  <label for="pickupSlotId">Afhaaldatum</label>
+                  <select id="pickupSlotId" name="pickupSlotId">
+                    <option value="">Kies een afhaaldatum</option>
+                    {pickupSlots.map((slot) => (
+                      <option value={slot.id}>{slot.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-    const renderSummary = () => {
-      if (!summary) return;
+              <div id="delivery-fields" style="display:none;">
+                <div class="field">
+                  <label for="addressLine1">Straat + huisnummer</label>
+                  <input id="addressLine1" name="addressLine1" type="text" />
+                </div>
 
-      if (!cart.length) {
-        summary.innerHTML = `
-          <strong>Je winkelmandje is leeg.</strong><br /><br />
-          <a class="shop-button" href="/winkelmandje">Ga terug naar je winkelmandje</a>
-        `;
-        return;
-      }
+                <div class="field">
+                  <label for="postalCode">Postcode</label>
+                  <select id="postalCode" name="postalCode">
+                    <option value="">Kies een postcode</option>
+                    {allowedPostalCodes.map((postalCode) => (
+                      <option value={postalCode}>
+                        {postalCode}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-      let subtotal = 0;
+                <div class="field">
+                  <label for="city">Deelgemeente</label>
+                  <select id="city" name="city">
+                    <option value="">Kies eerst een postcode</option>
+                  </select>
+                </div>
+              </div>
 
-      const rows = cart.map((item) => {
-        const lineTotal = item.unitPriceCents * item.quantity;
-        subtotal += lineTotal;
+              <div id="cart-summary" class="shop-notice" style="margin-top:24px;">
+                Winkelmandje wordt geladen...
+              </div>
 
-        return `
-          <div class="cart-row">
-            <strong>${escapeHtml(item.productName)}</strong><br />
-            <span>${escapeHtml(item.variantLabel)}</span><br />
-            <span class="muted">Aantal: ${item.quantity}</span><br />
-            <span>${formatPrice(lineTotal)}</span>
+              <button type="submit" class="shop-button">Verder naar betaling</button>
+            </form>
           </div>
-        `;
-      }).join("");
+        </div>
+      )}
+    </main>
 
-      summary.innerHTML = `
-        ${rows}
-        <br />
-        <strong>Subtotaal: ${formatPrice(subtotal)}</strong>
-      `;
-    };
+    <script define:vars={{ allowedPostalCodes, postalCodeVillages }}>
+      const fulfillmentType = document.getElementById("fulfillmentType");
+      const pickupFields = document.getElementById("pickup-fields");
+      const deliveryFields = document.getElementById("delivery-fields");
+      const postalCodeSelect = document.getElementById("postalCode");
+      const citySelect = document.getElementById("city");
+      const summary = document.getElementById("cart-summary");
+      const form = document.getElementById("checkout-form");
 
-    const toggleFulfillment = () => {
-      if (!(fulfillmentType instanceof HTMLSelectElement)) return;
-      if (!(pickupFields instanceof HTMLElement)) return;
-      if (!(deliveryFields instanceof HTMLElement)) return;
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      const escapeHtml = (value) =>
+        String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
 
-      pickupFields.style.display = fulfillmentType.value === "pickup" ? "block" : "none";
-      deliveryFields.style.display = fulfillmentType.value === "delivery" ? "block" : "none";
-    };
+      const formatPrice = (cents) =>
+        new Intl.NumberFormat("nl-BE", {
+          style: "currency",
+          currency: "EUR",
+        }).format(cents / 100);
 
-    const syncVillages = () => {
-      if (!(postalCodeSelect instanceof HTMLSelectElement)) return;
-      if (!(citySelect instanceof HTMLSelectElement)) return;
-
-      const postalCode = postalCodeSelect.value;
-      const villages = postalCodeVillages[postalCode] || [];
-
-      citySelect.innerHTML = "";
-
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = villages.length
-        ? "Kies een deelgemeente"
-        : "Kies eerst een postcode";
-      citySelect.appendChild(placeholder);
-
-      for (const village of villages) {
-        const option = document.createElement("option");
-        option.value = village;
-        option.textContent = village;
-        citySelect.appendChild(option);
-      }
-    };
-
-    if (fulfillmentType instanceof HTMLSelectElement) {
-      fulfillmentType.addEventListener("change", toggleFulfillment);
-    }
-
-    if (postalCodeSelect instanceof HTMLSelectElement) {
-      postalCodeSelect.addEventListener("change", syncVillages);
-    }
-
-    if (form instanceof HTMLFormElement) {
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
+      const renderSummary = () => {
+        if (!summary) return;
 
         if (!cart.length) {
-          alert("Je winkelmandje is leeg.");
+          summary.innerHTML = `
+            <strong>Je winkelmandje is leeg.</strong><br /><br />
+            <a class="shop-button" href="/winkelmandje">Ga terug naar je winkelmandje</a>
+          `;
           return;
         }
 
-        const formData = new FormData(form);
+        let subtotal = 0;
 
-        const customerName = String(formData.get("customerName") || "").trim();
-        const customerEmail = String(formData.get("customerEmail") || "").trim();
-        const customerPhone = String(formData.get("customerPhone") || "").trim();
-        const fulfillment = String(formData.get("fulfillmentType") || "");
-        const pickupSlotId = String(formData.get("pickupSlotId") || "");
-        const addressLine1 = String(formData.get("addressLine1") || "").trim();
-        const postalCode = String(formData.get("postalCode") || "").trim();
-        const city = String(formData.get("city") || "").trim();
+        const rows = cart.map((item) => {
+          const lineTotal = item.unitPriceCents * item.quantity;
+          subtotal += lineTotal;
 
-        if (!customerName || !customerEmail || !fulfillment) {
-          alert("Vul eerst alle verplichte velden in.");
-          return;
+          return `
+            <div class="cart-row">
+              <strong>${escapeHtml(item.productName)}</strong><br />
+              <span>${escapeHtml(item.variantLabel)}</span><br />
+              <span class="muted">Aantal: ${item.quantity}</span><br />
+              <span>${formatPrice(lineTotal)}</span>
+            </div>
+          `;
+        }).join("");
+
+        summary.innerHTML = `
+          ${rows}
+          <br />
+          <strong>Subtotaal: ${formatPrice(subtotal)}</strong>
+        `;
+      };
+
+      const toggleFulfillment = () => {
+        if (!(fulfillmentType instanceof HTMLSelectElement)) return;
+        if (!(pickupFields instanceof HTMLElement)) return;
+        if (!(deliveryFields instanceof HTMLElement)) return;
+
+        pickupFields.style.display = fulfillmentType.value === "pickup" ? "block" : "none";
+        deliveryFields.style.display = fulfillmentType.value === "delivery" ? "block" : "none";
+      };
+
+      const syncVillages = () => {
+        if (!(postalCodeSelect instanceof HTMLSelectElement)) return;
+        if (!(citySelect instanceof HTMLSelectElement)) return;
+
+        const postalCode = postalCodeSelect.value;
+        const villages = postalCodeVillages[postalCode] || [];
+
+        citySelect.innerHTML = "";
+
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = villages.length
+          ? "Kies een deelgemeente"
+          : "Kies eerst een postcode";
+        citySelect.appendChild(placeholder);
+
+        for (const village of villages) {
+          const option = document.createElement("option");
+          option.value = village;
+          option.textContent = village;
+          citySelect.appendChild(option);
         }
+      };
 
-        if (fulfillment === "pickup" && !pickupSlotId) {
-          alert("Kies een afhaaldatum.");
-          return;
-        }
+      if (fulfillmentType instanceof HTMLSelectElement) {
+        fulfillmentType.addEventListener("change", toggleFulfillment);
+      }
 
-        if (fulfillment === "delivery") {
-          if (!addressLine1 || !postalCode || !city) {
-            alert("Vul het leveradres volledig in.");
+      if (postalCodeSelect instanceof HTMLSelectElement) {
+        postalCodeSelect.addEventListener("change", syncVillages);
+      }
+
+      if (form instanceof HTMLFormElement) {
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+
+          if (!cart.length) {
+            alert("Je winkelmandje is leeg.");
             return;
           }
 
-          if (!allowedPostalCodes.includes(postalCode)) {
-            alert("Levering is alleen mogelijk in 9300, 9308, 9310 en 9320.");
+          const formData = new FormData(form);
+
+          const customerName = String(formData.get("customerName") || "").trim();
+          const customerEmail = String(formData.get("customerEmail") || "").trim();
+          const customerPhone = String(formData.get("customerPhone") || "").trim();
+          const fulfillment = String(formData.get("fulfillmentType") || "");
+          const pickupSlotId = String(formData.get("pickupSlotId") || "");
+          const addressLine1 = String(formData.get("addressLine1") || "").trim();
+          const postalCode = String(formData.get("postalCode") || "").trim();
+          const city = String(formData.get("city") || "").trim();
+
+          if (!customerName || !customerEmail || !fulfillment) {
+            alert("Vul eerst alle verplichte velden in.");
             return;
           }
 
-          const validVillages = postalCodeVillages[postalCode] || [];
-          if (!validVillages.includes(city)) {
-            alert("Kies een geldige deelgemeente voor deze postcode.");
+          if (fulfillment === "pickup" && !pickupSlotId) {
+            alert("Kies een afhaaldatum.");
             return;
           }
-        }
 
-     const checkoutPayload = {
-  customerName,
-  customerEmail,
-  customerPhone,
-  fulfillmentType: fulfillment,
-  pickupSlotId: fulfillment === "pickup" ? pickupSlotId : null,
-  addressLine1: fulfillment === "delivery" ? addressLine1 : null,
-  postalCode: fulfillment === "delivery" ? postalCode : null,
-  city: fulfillment === "delivery" ? city : null,
-  cart: cart.map((item) => ({
-    variantId: item.variantId,
-    quantity: item.quantity,
-  })),
-};
+          if (fulfillment === "delivery") {
+            if (!addressLine1 || !postalCode || !city) {
+              alert("Vul het leveradres volledig in.");
+              return;
+            }
 
-const response = await fetch("/api/checkout/create", {
-  method: "POST",
-  headers: {
-    "content-type": "application/json",
-  },
-  body: JSON.stringify(checkoutPayload),
-});
+            if (!allowedPostalCodes.includes(postalCode)) {
+              alert("Levering is alleen mogelijk in 9300, 9280, 9308, 9310 en 9320.");
+              return;
+            }
 
-const result = await response.json();
+            const validVillages = postalCodeVillages[postalCode] || [];
+            if (!validVillages.includes(city)) {
+              alert("Kies een geldige deelgemeente voor deze postcode.");
+              return;
+            }
+          }
 
-if (!response.ok) {
-  alert(result.error || "Er ging iets mis bij het starten van de betaling.");
-  return;
-}
+      const checkoutPayload = {
+    customerName,
+    customerEmail,
+    customerPhone,
+    fulfillmentType: fulfillment,
+    pickupSlotId: fulfillment === "pickup" ? pickupSlotId : null,
+    addressLine1: fulfillment === "delivery" ? addressLine1 : null,
+    postalCode: fulfillment === "delivery" ? postalCode : null,
+    city: fulfillment === "delivery" ? city : null,
+    cart: cart.map((item) => ({
+      variantId: item.variantId,
+      quantity: item.quantity,
+    })),
+  };
 
-localStorage.setItem("checkoutDraft", JSON.stringify(checkoutPayload));
-window.location.href = result.url;
-      });
-    }
+  const response = await fetch("/api/checkout/create", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(checkoutPayload),
+  });
 
-    renderSummary();
-    toggleFulfillment();
-    syncVillages();
-  </script>
-</ShopLayout>
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.error || "Er ging iets mis bij het starten van de betaling.");
+    return;
+  }
+
+  localStorage.setItem("checkoutDraft", JSON.stringify(checkoutPayload));
+  window.location.href = result.url;
+        });
+      }
+
+      renderSummary();
+      toggleFulfillment();
+      syncVillages();
+    </script>
+  </ShopLayout>

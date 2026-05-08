@@ -1,5 +1,6 @@
 import { createSupabaseAdmin } from "./supabase-admin";
 import { json } from "./security-headers";
+import { addServerBreadcrumb, setAdminUserContext } from "./sentry";
 
 export async function requireAdmin(context: {
   request: Request;
@@ -15,7 +16,19 @@ export async function requireAdmin(context: {
   }
 
   const accessToken = match[1];
-  const supabase = createSupabaseAdmin(context.env);
+  let supabase;
+
+  try {
+    supabase = createSupabaseAdmin(context.env);
+  } catch (error) {
+    console.error("Admin auth serverconfig fout:", error);
+    return {
+      response: json(
+        { error: "Admin-auth serverconfig ontbreekt of is ongeldig." },
+        500,
+      ),
+    };
+  }
 
   const {
     data: { user },
@@ -23,6 +36,11 @@ export async function requireAdmin(context: {
   } = await supabase.auth.getUser(accessToken);
 
   if (userError || !user) {
+    addServerBreadcrumb({
+      category: "admin.auth",
+      message: "Admin sessie ongeldig",
+      level: "warning",
+    });
     return {
       response: json({ error: "Ongeldige sessie." }, 401),
     };
@@ -35,10 +53,33 @@ export async function requireAdmin(context: {
     .maybeSingle();
 
   if (adminError || !adminUser || !adminUser.is_active) {
+    addServerBreadcrumb({
+      category: "admin.auth",
+      message: "Adminrechten geweigerd",
+      data: {
+        userId: user.id,
+        email: user.email ?? undefined,
+      },
+      level: "warning",
+    });
     return {
       response: json({ error: "Geen adminrechten." }, 403),
     };
   }
+
+  setAdminUserContext({
+    id: user.id,
+    email: user.email,
+  });
+
+  addServerBreadcrumb({
+    category: "admin.auth",
+    message: "Adminrechten bevestigd",
+    data: {
+      userId: user.id,
+      email: user.email ?? undefined,
+    },
+  });
 
   return {
     supabase,

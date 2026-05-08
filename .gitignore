@@ -16,6 +16,7 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+.env.sentry-build-plugin
 .dev.vars
 .dev.vars*
 .wrangler/

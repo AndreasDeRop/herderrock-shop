@@ -14,10 +14,15 @@ import ShopLayout from "../layouts/ShopLayout.astro";
   </main>
 
   <script>
-    import { escapeHtml } from "../lib/client-html";
-
     const root = document.getElementById("cart-root");
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
 
     const formatPrice = (cents) =>
       new Intl.NumberFormat("nl-BE", {
@@ -52,6 +57,7 @@ import ShopLayout from "../layouts/ShopLayout.astro";
             <span class="muted">Aantal: ${item.quantity}</span><br />
             <span>${formatPrice(lineTotal)}</span><br /><br />
             <button class="shop-button-secondary" data-index="${index}">Verwijderen</button>
+
           </div>
         `;
       }).join("");
@@ -64,6 +70,7 @@ import ShopLayout from "../layouts/ShopLayout.astro";
     <br />
     <div style="display:flex; gap:12px; flex-wrap:wrap;">
       <a class="shop-button" href="/afrekenen">Verder naar afrekenen</a>
+                    <a class="shop-button" href="/">Terug naar shop</a>
     </div>
   </div>
 `;

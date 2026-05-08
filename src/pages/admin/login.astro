@@ -31,7 +31,7 @@ import ShopLayout from "../../layouts/ShopLayout.astro";
 
     const form = document.getElementById("admin-login-form");
     const message = document.getElementById("login-message");
-const redirectTo = window.location.origin;
+
     if (form instanceof HTMLFormElement) {
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -46,11 +46,14 @@ const redirectTo = window.location.origin;
 
         if (message) message.textContent = "Magic link wordt verstuurd...";
 
+        const redirectTo = new URL("/auth/confirm", window.location.origin);
+        redirectTo.searchParams.set("next", "/admin");
+
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: {  
-            emailRedirectTo: redirectTo,
-            shouldCreateUser: true,
+          options: {
+            emailRedirectTo: redirectTo.toString(),
+            shouldCreateUser: false,
           },
         });
 

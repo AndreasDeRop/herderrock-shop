@@ -13,6 +13,8 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@sentry/astro": "^10.49.0",
+    "@sentry/cloudflare": "^10.49.0",
     "@supabase/supabase-js": "^2.103.0",
     "astro": "^6.1.5",
     "stripe": "^22.0.1"

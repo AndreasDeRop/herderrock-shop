@@ -1,4 +1,4 @@
-import { getDeliveryZones, getPickupSlots, formatPrice } from "./shop";
+import { getDeliveryZones, getPickupSlots } from "./shop";
 
 export type FulfillmentType = "pickup" | "delivery";
 
@@ -19,8 +19,4 @@ export function isAllowedPostalCode(
   allowedPostalCodes: string[],
 ) {
   return allowedPostalCodes.includes(postalCode.trim());
-}
-
-export function formatDeliveryFee(cents: number) {
-  return formatPrice(cents);
 }
