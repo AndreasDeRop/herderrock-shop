@@ -1,0 +1,65 @@
+---
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+---
+
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bezig met inloggen...</title>
+  </head>
+  <body style="font-family: Arial, sans-serif; padding: 2rem;">
+    <div
+      id="auth-confirm-config"
+      data-supabase-url={supabaseUrl}
+      data-supabase-key={supabaseKey}
+    ></div>
+
+    <p id="status">Bezig met inloggen...</p>
+
+    <script>
+      import { createClient } from "@supabase/supabase-js";
+
+      const statusEl = document.getElementById("status");
+      const configEl = document.getElementById("auth-confirm-config");
+
+      const supabaseUrl = configEl?.getAttribute("data-supabase-url");
+      const supabaseKey = configEl?.getAttribute("data-supabase-key");
+
+      if (!supabaseUrl || !supabaseKey) {
+        if (statusEl) {
+          statusEl.textContent = "Supabase configuratie ontbreekt.";
+        }
+        throw new Error("Missing Supabase config");
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const url = new URL(window.location.href);
+      const token_hash = url.searchParams.get("token_hash");
+      const type = url.searchParams.get("type");
+      const next = url.searchParams.get("next") || "/admin";
+
+      if (!token_hash || !type) {
+        if (statusEl) {
+          statusEl.textContent = "Ongeldige of onvolledige magic link.";
+        }
+        throw new Error("Missing token_hash or type");
+      }
+
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash,
+        type,
+      });
+
+      if (error) {
+        if (statusEl) {
+          statusEl.textContent = `Inloggen mislukt: ${error.message}`;
+        }
+      } else {
+        window.location.replace(next);
+      }
+    </script>
+  </body>
+</html>

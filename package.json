@@ -6,12 +6,21 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
+    "dev": "wrangler types && astro dev",
+    "build": "wrangler types && astro build",
+    "preview": "wrangler types && astro preview",
+    "deploy": "npm run build && wrangler deploy",
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^6.1.5"
+    "@sentry/astro": "^10.49.0",
+    "@sentry/cloudflare": "^10.49.0",
+    "@supabase/supabase-js": "^2.103.0",
+    "astro": "^6.1.5",
+    "stripe": "^22.0.1"
+  },
+  "devDependencies": {
+    "@astrojs/cloudflare": "^13.1.10",
+    "wrangler": "^4.84.1"
   }
 }

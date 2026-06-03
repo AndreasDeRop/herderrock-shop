@@ -1,0 +1,90 @@
+---
+import ShopLayout from "../layouts/ShopLayout.astro";
+---
+
+<ShopLayout title="Winkelmandje">
+  <main class="cart-shell">
+    <h1 class="shop-title">Winkelmandje</h1>
+
+    <div id="cart-root" class="cart-panel">
+      <div class="cart-panel-inner">
+        <p>Je winkelmandje wordt geladen...</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const root = document.getElementById("cart-root");
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const escapeHtml = (value) =>
+      String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+
+    const formatPrice = (cents) =>
+      new Intl.NumberFormat("nl-BE", {
+        style: "currency",
+        currency: "EUR",
+      }).format(cents / 100);
+
+    const render = () => {
+      if (!root) return;
+
+      if (!cart.length) {
+        root.innerHTML = `
+          <div class="cart-panel-inner">
+            <p>Je winkelmandje is leeg.</p>
+            <br />
+            <a class="shop-button" href="/">Terug naar shop</a>
+          </div>
+        `;
+        return;
+      }
+
+      let total = 0;
+
+      const rows = cart.map((item, index) => {
+        const lineTotal = item.unitPriceCents * item.quantity;
+        total += lineTotal;
+
+        return `
+          <div class="cart-row">
+            <strong>${escapeHtml(item.productName)}</strong><br />
+            <span>${escapeHtml(item.variantLabel)}</span><br />
+            <span class="muted">Aantal: ${item.quantity}</span><br />
+            <span>${formatPrice(lineTotal)}</span><br /><br />
+            <button class="shop-button-secondary" data-index="${index}">Verwijderen</button>
+
+          </div>
+        `;
+      }).join("");
+
+ root.innerHTML = `
+  <div class="cart-panel-inner">
+    ${rows}
+    <br />
+    <p><strong>Totaal: ${formatPrice(total)}</strong></p>
+    <br />
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+      <a class="shop-button" href="/afrekenen">Verder naar afrekenen</a>
+                    <a class="shop-button" href="/">Terug naar shop</a>
+    </div>
+  </div>
+`;
+
+      root.querySelectorAll("[data-index]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const index = Number(button.getAttribute("data-index"));
+          cart.splice(index, 1);
+          localStorage.setItem("cart", JSON.stringify(cart));
+          render();
+        });
+      });
+    };
+
+    render();
+  </script>
+</ShopLayout>

@@ -1,0 +1,167 @@
+---
+import ShopLayout from "../../layouts/ShopLayout.astro";
+import { getProductBySlug, formatPrice, isShopClosed } from "../../lib/shop";
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect("/");
+}
+
+const product = await getProductBySlug(slug);
+const closed = isShopClosed();
+const variants = product?.variants ?? [];
+const images = product?.images ?? [];
+const primaryImage =
+  images[0]?.image_url ||
+  product?.image_url ||
+  "/images/tshirt-placeholder.jpg";
+const pageTitle = product?.name ?? "Product niet gevonden";
+
+if (!product) {
+  Astro.response.status = 404;
+}
+---
+
+<ShopLayout title={pageTitle}>
+  {!product ? (
+    <main class="shop-shell">
+      <h1 class="shop-title">Product niet gevonden</h1>
+      <div class="shop-notice">
+        Dit product bestaat niet meer of staat niet langer actief in de shop.
+      </div>
+    </main>
+  ) : (
+  <section class="product-detail">
+    <div class="product-visual-panel">
+      <img
+        class="product-image"
+        src={primaryImage}
+        alt={product.name}
+        id="main-product-image"
+      />
+
+      {images.length > 1 && (
+        <div class="product-thumbs">
+          {images.map((image) => (
+            <button
+              type="button"
+              class="product-thumb"
+              data-image={image.image_url}
+              data-alt={image.alt_text || product.name}
+            >
+              <img
+                src={image.image_url}
+                alt={image.alt_text || product.name}
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div class="product-info-panel">
+      <h1>{product.name}</h1>
+      <p>{product.description}</p>
+
+      {closed ? (
+        <div class="shop-notice">De webshop is gesloten.</div>
+      ) : (
+        <form id="add-to-cart-form">
+          <div class="field">
+            <label for="variant">Maat</label>
+            <select id="variant" name="variantId" required>
+              <option value="">Kies een maat</option>
+              {variants.map((variant) => (
+                <option
+                  value={variant.id}
+                  data-price={variant.price_cents}
+                  data-label={variant.label}
+                  disabled={variant.stock_quantity <= 0}
+                >
+                  {variant.label} — {formatPrice(variant.price_cents)}
+                  {variant.stock_quantity <= 0 ? " (uitverkocht)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="quantity">Aantal</label>
+            <input id="quantity" name="quantity" type="number" min="1" value="1" required />
+          </div>
+
+          <button type="submit" class="shop-button">Toevoegen aan winkelmandje</button>
+         <a class="shop-button" href="/">Terug naar shop</a>
+
+        </form>
+      )}
+    </div>
+  </section>
+
+  <script define:vars={{ productId: product.id, productName: product.name }}>
+    const form = document.getElementById("add-to-cart-form");
+
+    if (form) {
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const variantSelect = document.getElementById("variant");
+        const quantityInput = document.getElementById("quantity");
+
+        if (!(variantSelect instanceof HTMLSelectElement) || !(quantityInput instanceof HTMLInputElement)) {
+          return;
+        }
+
+        const selectedOption = variantSelect.selectedOptions[0];
+        if (!selectedOption || !selectedOption.value) {
+          alert("Kies eerst een maat.");
+          return;
+        }
+
+        const quantity = Number(quantityInput.value);
+        if (!Number.isInteger(quantity) || quantity < 1) {
+          alert("Aantal is ongeldig.");
+          return;
+        }
+
+        const item = {
+          productId,
+          productName,
+          variantId: selectedOption.value,
+          variantLabel: selectedOption.dataset.label,
+          unitPriceCents: Number(selectedOption.dataset.price),
+          quantity,
+        };
+
+        const existing = JSON.parse(localStorage.getItem("cart") || "[]");
+        const match = existing.find((x) => x.variantId === item.variantId);
+
+        if (match) {
+          match.quantity += quantity;
+        } else {
+          existing.push(item);
+        }
+
+        localStorage.setItem("cart", JSON.stringify(existing));
+        window.location.href = "/winkelmandje";
+      });
+    }
+
+    const mainImage = document.getElementById("main-product-image");
+
+    document.querySelectorAll(".product-thumb").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!(mainImage instanceof HTMLImageElement)) return;
+        if (!(button instanceof HTMLButtonElement)) return;
+
+        const nextSrc = button.dataset.image;
+        const nextAlt = button.dataset.alt;
+
+        if (nextSrc) mainImage.src = nextSrc;
+        if (nextAlt) mainImage.alt = nextAlt;
+      });
+    });
+  </script>
+  )}
+</ShopLayout>

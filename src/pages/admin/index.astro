@@ -1,0 +1,354 @@
+---
+import ShopLayout from "../../layouts/ShopLayout.astro";
+---
+
+<ShopLayout title="Admin dashboard">
+  <main class="cart-shell">
+    <div
+      style="display:flex; justify-content:space-between; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom: 20px;"
+    >
+      <h1 class="shop-title" style="margin-bottom:0;">Admin dashboard</h1>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <a href="/admin/orders" class="shop-button-secondary">Bestellingen</a>
+        <a href="/admin/pickups" class="shop-button-secondary">Afhalingen</a>
+        <a href="/admin/deliveries" class="shop-button-secondary">Leveringen</a>
+        <a href="/admin/products" class="shop-button-secondary">Producten</a>
+        <button id="logout-button" class="shop-button-secondary">Uitloggen</button>
+      </div>
+    </div>
+
+    <div id="admin-status" class="shop-notice">Admin check bezig...</div>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <strong>Snelle navigatie</strong>
+
+        <div
+          style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:16px;"
+        >
+          <a href="/admin/orders" class="shop-button" style="text-align:center;">Volledige bestellingen</a>
+          <a href="/admin/pickups" class="shop-button" style="text-align:center;">Afhaallijst</a>
+          <a href="/admin/deliveries" class="shop-button" style="text-align:center;">Leverlijst</a>
+          <a href="/admin/products" class="shop-button" style="text-align:center;">Producten & stock</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <strong>Bestellingen</strong>
+        <div
+          id="orders-summary-cards"
+          style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:16px;"
+        ></div>
+      </div>
+    </section>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <strong>Producten</strong>
+        <div
+          id="products-summary-cards"
+          style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:16px;"
+        ></div>
+      </div>
+    </section>
+
+    <section class="cart-panel" style="margin-bottom: 24px;">
+      <div class="cart-panel-inner">
+        <strong>Festivalmomenten</strong>
+        <div
+          id="festival-summary-cards"
+          style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:16px;"
+        ></div>
+      </div>
+    </section>
+
+    <section class="cart-panel">
+      <div class="cart-panel-inner">
+        <strong>Aandachtspunten</strong>
+        <div id="attention-list" style="margin-top:16px;"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    import { supabase } from "../../lib/supabase";
+    import { escapeHtml } from "../../lib/client-html";
+
+    const adminStatus = document.getElementById("admin-status");
+    const logoutButton = document.getElementById("logout-button");
+
+    const ordersSummaryCards = document.getElementById("orders-summary-cards");
+    const productsSummaryCards = document.getElementById("products-summary-cards");
+    const festivalSummaryCards = document.getElementById("festival-summary-cards");
+    const attentionList = document.getElementById("attention-list");
+
+    async function getAccessToken() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      return session?.access_token || null;
+    }
+
+    function renderStatCard(label, value, sublabel = "") {
+      return `
+        <div style="border:2px solid var(--black); padding:16px; background:var(--white); color:var(--primary-gray);">
+          <strong>${escapeHtml(label)}</strong><br />
+          <span style="font-size:1.6rem; font-weight:800;">${escapeHtml(value)}</span>
+          ${sublabel ? `<br /><span class="muted">${escapeHtml(sublabel)}</span>` : ""}
+        </div>
+      `;
+    }
+
+    function countPickupForDate(orders, date) {
+      return orders.filter(
+        (order) =>
+          order.fulfillment_type === "pickup" &&
+          order.pickup_slot?.pickup_date === date
+      ).length;
+    }
+
+    function renderOrdersSummary(orders) {
+      if (!ordersSummaryCards) return;
+
+      const total = orders.length;
+      const paid = orders.filter((o) => o.status === "paid").length;
+      const pendingPayment = orders.filter((o) => o.status === "pending_payment").length;
+      const readyForPickup = orders.filter((o) => o.status === "ready_for_pickup").length;
+      const pickedUp = orders.filter((o) => o.status === "picked_up").length;
+      const outForDelivery = orders.filter((o) => o.status === "out_for_delivery").length;
+      const delivered = orders.filter((o) => o.status === "delivered").length;
+
+      ordersSummaryCards.innerHTML = [
+        renderStatCard("Totaal bestellingen", total),
+        renderStatCard("Betaald", paid),
+        renderStatCard("Wacht op betaling", pendingPayment),
+        renderStatCard("Klaar voor afhaling", readyForPickup),
+        renderStatCard("Afgehaald", pickedUp),
+        renderStatCard("Onderweg", outForDelivery),
+        renderStatCard("Geleverd", delivered),
+      ].join("");
+    }
+
+    function renderProductsSummary(products) {
+      if (!productsSummaryCards) return;
+
+      const totalProducts = products.length;
+      const activeProducts = products.filter((p) => p.is_active).length;
+      const inactiveProducts = products.filter((p) => !p.is_active).length;
+
+      const allVariants = products.flatMap((p) => p.variants || []);
+      const activeVariants = allVariants.filter((v) => v.is_active).length;
+      const inactiveVariants = allVariants.filter((v) => !v.is_active).length;
+      const lowStockVariants = allVariants.filter((v) => v.is_active && (v.stock_quantity || 0) <= 2).length;
+      const outOfStockVariants = allVariants.filter((v) => v.is_active && (v.stock_quantity || 0) === 0).length;
+
+      productsSummaryCards.innerHTML = [
+        renderStatCard("Producten", totalProducts),
+        renderStatCard("Actieve producten", activeProducts),
+        renderStatCard("Inactieve producten", inactiveProducts),
+        renderStatCard("Actieve varianten", activeVariants),
+        renderStatCard("Inactieve varianten", inactiveVariants),
+        renderStatCard("Lage stock", lowStockVariants, "Actieve varianten met stock ≤ 2"),
+        renderStatCard("Uitverkocht", outOfStockVariants),
+      ].join("");
+    }
+
+    function renderFestivalSummary(orders) {
+      if (!festivalSummaryCards) return;
+
+      const pickup3 = countPickupForDate(orders, "2026-09-03");
+      const pickup4 = countPickupForDate(orders, "2026-09-04");
+      const pickup5 = countPickupForDate(orders, "2026-09-05");
+      const deliveries = orders.filter((o) => o.fulfillment_type === "delivery").length;
+
+      festivalSummaryCards.innerHTML = [
+        renderStatCard("Afhalingen 3 sep", pickup3),
+        renderStatCard("Afhalingen 4 sep", pickup4),
+        renderStatCard("Afhalingen 5 sep", pickup5),
+        renderStatCard("Leveringen", deliveries),
+      ].join("");
+    }
+
+    function renderAttention(orders, products) {
+      if (!attentionList) return;
+
+      const lowStockVariants = products
+        .flatMap((p) =>
+          (p.variants || []).map((v) => ({
+            productName: p.name,
+            ...v,
+          })),
+        )
+        .filter((v) => v.is_active && (v.stock_quantity || 0) <= 2);
+
+      const unpaidOrders = orders.filter((o) => o.status === "pending_payment");
+      const openPickups = orders.filter(
+        (o) => o.fulfillment_type === "pickup" && ["paid", "ready_for_pickup"].includes(o.status),
+      );
+      const openDeliveries = orders.filter(
+        (o) => o.fulfillment_type === "delivery" && ["paid", "out_for_delivery"].includes(o.status),
+      );
+
+      const items = [];
+
+      if (lowStockVariants.length) {
+        items.push(`
+          <div class="cart-row">
+            <strong>Lage stock</strong><br />
+            <span>
+              ${lowStockVariants
+                .map(
+                  (v) =>
+                    `${escapeHtml(v.productName)} — ${escapeHtml(v.label)} (${v.stock_quantity})`
+                )
+                .join(" | ")}
+            </span>
+          </div>
+        `);
+      }
+
+      if (unpaidOrders.length) {
+        items.push(`
+          <div class="cart-row">
+            <strong>Wachten op betaling</strong><br />
+            <span>${unpaidOrders.length} bestelling${unpaidOrders.length === 1 ? "" : "en"}</span>
+          </div>
+        `);
+      }
+
+      if (openPickups.length) {
+        items.push(`
+          <div class="cart-row">
+            <strong>Open afhalingen</strong><br />
+            <span>${openPickups.length} bestelling${openPickups.length === 1 ? "" : "en"}</span>
+          </div>
+        `);
+      }
+
+      if (openDeliveries.length) {
+        items.push(`
+          <div class="cart-row">
+            <strong>Open leveringen</strong><br />
+            <span>${openDeliveries.length} bestelling${openDeliveries.length === 1 ? "" : "en"}</span>
+          </div>
+        `);
+      }
+
+      attentionList.innerHTML =
+        items.length > 0
+          ? items.join("")
+          : `<div class="muted">Geen speciale aandachtspunten op dit moment.</div>`;
+    }
+
+    async function loadDashboard() {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (adminStatus) {
+        adminStatus.textContent = "Admin check bezig...";
+      }
+
+      const meResponse = await fetch("/api/admin/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (meResponse.status === 401) {
+        await supabase.auth.signOut();
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (meResponse.status === 403) {
+        if (adminStatus) {
+          adminStatus.textContent = "Je account heeft geen adminrechten.";
+        }
+        return;
+      }
+
+      if (!meResponse.ok) {
+        let errorText = `Admin check mislukt (${meResponse.status}).`;
+
+        try {
+          const err = await meResponse.json();
+          if (err?.error) {
+            errorText += ` ${err.error}`;
+          }
+        } catch {}
+
+        if (adminStatus) {
+          adminStatus.textContent = errorText;
+        }
+        return;
+      }
+
+      const meResult = await meResponse.json();
+
+      if (adminStatus) {
+        adminStatus.textContent = `Ingelogd als ${meResult.user.email}`;
+      }
+
+      const [ordersResponse, productsResponse] = await Promise.all([
+        fetch("/api/admin/orders", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }),
+        fetch("/api/admin/products", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }),
+      ]);
+
+      if (!ordersResponse.ok) {
+        if (ordersSummaryCards) {
+          ordersSummaryCards.innerHTML = `<div class="muted">Kon ordercijfers niet laden.</div>`;
+        }
+        return;
+      }
+
+      if (!productsResponse.ok) {
+        if (productsSummaryCards) {
+          productsSummaryCards.innerHTML = `<div class="muted">Kon productcijfers niet laden.</div>`;
+        }
+        return;
+      }
+
+      const { orders } = await ordersResponse.json();
+      const { products } = await productsResponse.json();
+
+      const safeOrders = orders || [];
+      const safeProducts = products || [];
+
+      renderOrdersSummary(safeOrders);
+      renderProductsSummary(safeProducts);
+      renderFestivalSummary(safeOrders);
+      renderAttention(safeOrders, safeProducts);
+    }
+
+    if (logoutButton) {
+      logoutButton.addEventListener("click", async () => {
+        await supabase.auth.signOut();
+        window.location.href = "/admin/login";
+      });
+    }
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) {
+        loadDashboard();
+      }
+    });
+
+    loadDashboard();
+  </script>
+</ShopLayout>

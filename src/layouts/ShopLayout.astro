@@ -1,0 +1,821 @@
+---
+interface Props {
+  title: string;
+  showHero?: boolean;
+}
+
+const { title, showHero = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Herderrock merch shop" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header>
+      <a href="https://herderrock.be" class="logo"><h1>Herderrock</h1></a>
+      <div class="header-actions">
+        <a
+          href="https://herderrock.be"
+          class="ticket-button"
+          rel="noreferrer"
+        >
+          <span class="ticket-label-desktop">Festival site</span>
+          <span class="ticket-label-mobile">SITE</span>
+        </a>
+
+        <a href="/winkelmandje" class="cart-button">
+          <span class="ticket-label-desktop">Winkelmandje</span>
+          <span class="ticket-label-mobile">CART</span>
+        </a>
+
+        <div class="hamburger" onclick="toggleMenu()">
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+      </div>
+
+      <div class="menu" id="menu" onclick="toggleMenu()">
+        <a href="/">Shop</a>
+        <a href="/winkelmandje">Winkelmandje</a>
+        <a href="https://herderrock.be">Festival site</a>
+        <a href="https://herderrock.be/faq">FAQ</a>
+        <a href="https://herderrock.be/sponsors">Sponsors</a>
+      </div>
+    </header>
+
+    {showHero && (
+      <section class="shop-hero">
+        <div class="shop-hero-shell padding-x padding-y">
+          <div class="shop-hero-card">
+            <div class="shop-hero-visual">
+              <div class="shop-hero-mist shop-hero-mist-left">
+                <img src="/visuals/mist-1.webp" alt="" loading="eager" />
+              </div>
+              <div class="shop-hero-mist shop-hero-mist-right">
+                <img src="/visuals/mist-4.webp" alt="" loading="eager" />
+              </div>
+
+              <div class="shop-hero-stamp">
+                <span class="shop-hero-label">Herderrock Merch</span>
+                <h2>SHOP</h2>
+              </div>
+            </div>
+
+            <div class="shop-hero-content">
+              <span class="shop-hero-kicker">Officiële merch</span>
+              <h3>Draag Herderrock ook buiten het festival.</h3>
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <slot />
+
+    <footer>© Herderrock 1985 - 2026</footer>
+  <div class="site-credit">
+      <a href="https://www.oddunit.be" target="_blank" rel="noreferrer">
+        Made by OddUnitStudio
+      </a>
+    </div>
+    <script>
+      const toggleMenu = () => {
+        const menu = document.getElementById("menu");
+        const hamburger = document.querySelector(".hamburger");
+        if (menu && hamburger) {
+          menu.classList.toggle("active");
+          hamburger.classList.toggle("active");
+        }
+      };
+
+      // @ts-ignore
+      window.toggleMenu = toggleMenu;
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @font-face {
+    font-family: "Herderrock Impact";
+    src: url("/fonts/impact.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --red: #ED1C24;
+    --white: #F9EED5;
+    --primary-gray: #19203B;
+    --black: #11110e;
+    --bp-tablet: 768px;
+    --content-max: 1200px;
+    --border-strong: 3px solid var(--black);
+  }
+
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  html {
+    font-family: Arial, sans-serif;
+    background: var(--white);
+  }
+
+  body {
+    margin: 0;
+    color: var(--primary-gray);
+    background: var(--white);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  h1, h2, h3, h4, h5, p {
+    margin: 0;
+  }
+
+  h2,
+  h3 {
+    font-family: "Herderrock Impact", Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .padding-y {
+    padding-top: 3%;
+    padding-bottom: 3%;
+  }
+
+  .padding-x {
+    padding-left: 5%;
+    padding-right: 5%;
+  }
+
+  .logo {
+    width: 200px;
+    height: 200px;
+    background-image: url("/logo.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    transition: background-image 0.2s ease-in-out;
+  }
+
+  .logo:hover {
+    background-image: url("/logo-hover.png");
+  }
+
+  .logo h1 {
+    display: none;
+  }
+
+  header {
+    background-color: var(--red);
+    display: flex;
+    justify-content: center;
+    max-height: 30%;
+  }
+
+  footer {
+    color: var(--white);
+    background-color: var(--primary-gray);
+    padding: 16px;
+    text-align: center;
+    margin-top: auto;
+  }
+  .site-credit {
+    background-color: var(--primary-gray);
+    padding: 0 16px 16px;
+    text-align: center;
+  }
+
+  .site-credit a {
+    color: var(--white);
+    text-decoration: none;
+    opacity: 0.82;
+    transition: opacity 0.2s ease;
+    font-size: small;
+  }
+
+  .site-credit a:hover {
+    opacity: 1;
+  }
+  
+  .header-actions {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ticket-button,
+  .cart-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 57px;
+    padding: 0 22px;
+    border: 2px solid var(--black);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 800;
+    transition:
+      transform 0.2s ease,
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .ticket-button {
+    background-color: var(--white);
+    color: var(--primary-gray);
+    box-shadow: 0 0 0 2px rgba(237, 28, 36, 0.25);
+  }
+
+  .ticket-button:hover {
+    transform: translateY(-2px);
+    background-color: var(--primary-gray);
+    color: var(--white);
+    border-color: var(--white);
+  }
+
+  .cart-button {
+    background-color: var(--primary-gray);
+    color: var(--white);
+    box-shadow: 0 0 0 2px rgba(249, 238, 213, 0.15);
+  }
+
+  .cart-button:hover {
+    transform: translateY(-2px);
+    background-color: var(--white);
+    color: var(--red);
+  }
+
+  .ticket-label-mobile {
+    display: none;
+  }
+
+  .hamburger {
+    cursor: pointer;
+    display: flex;
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    padding: 12px;
+    background-color: var(--red);
+    flex: 0 0 auto;
+  }
+  .hamburger div {
+    position: absolute;
+    left: 50%;
+    background-color: var(--white);
+    height: 4px;
+    width: 28px;
+    border-radius: 2px;
+    transform: translateX(-50%);
+    transition:
+      transform 0.3s ease-in-out,
+      top 0.3s ease-in-out,
+      opacity 0.2s ease-in-out;
+  }
+  .hamburger div:nth-child(1) {
+    top: 16px;
+  }
+  .hamburger div:nth-child(2) {
+    top: 25px;
+  }
+  .hamburger div:nth-child(3) {
+    top: 34px;
+  }
+  .hamburger.active div:nth-child(1) {
+    top: 25px;
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .hamburger.active div:nth-child(2) {
+    opacity: 0;
+  }
+  .hamburger.active div:nth-child(3) {
+    top: 25px;
+    transform: translateX(-50%) rotate(-45deg);
+  }
+
+  .menu {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(249, 238, 213, 0.97);
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
+
+  .menu.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  .menu a {
+    color: var(--red);
+    padding: 16px;
+    text-decoration: none;
+    font-size: 24px;
+    text-align: center;
+    transition: color 0.3s ease-in-out;
+    font-weight: 700;
+  }
+
+  .menu a:hover {
+    color: var(--primary-gray);
+  }
+
+  .shop-hero {
+    background-color: var(--white);
+  }
+
+  .shop-hero-shell {
+    width: 100%;
+    max-width: var(--content-max);
+    margin: 0 auto;
+  }
+
+  .shop-hero-card {
+    display: grid;
+    grid-template-columns: 1fr 0.9fr;
+    border: var(--border-strong);
+    background-color: var(--white);
+    overflow: hidden;
+  }
+
+  .shop-hero-visual {
+    position: relative;
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--red);
+    overflow: hidden;
+  }
+
+  .shop-hero-mist {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.95;
+  }
+
+  .shop-hero-mist img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .shop-hero-mist-left {
+    left: -4%;
+    bottom: -6%;
+    width: min(30vw, 340px);
+  }
+
+  .shop-hero-mist-right {
+    right: -5%;
+    top: -6%;
+    width: min(28vw, 320px);
+  }
+
+  .shop-hero-stamp {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    border: var(--border-strong);
+    background-color: var(--primary-gray);
+    color: var(--white);
+    padding: 40px 34px;
+    min-width: min(78%, 520px);
+  }
+
+  .shop-hero-label {
+    display: inline-block;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.8rem;
+  }
+
+  .shop-hero-stamp h2 {
+    font-size: clamp(3.2rem, 7vw, 6rem);
+    line-height: 0.9;
+    margin-bottom: 10px;
+  }
+
+  .shop-hero-stamp p {
+    font-size: clamp(1rem, 2vw, 1.4rem);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+  }
+
+  .shop-hero-content {
+    background-color: var(--primary-gray);
+    color: var(--white);
+    padding: 56px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .shop-hero-kicker {
+    display: inline-block;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.8rem;
+    opacity: 0.8;
+  }
+
+  .shop-hero-content h3 {
+    font-size: clamp(2.2rem, 4vw, 3.6rem);
+    line-height: 0.95;
+    margin-bottom: 20px;
+    color: var(--white);
+  }
+
+  .shop-hero-content p {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--white);
+  }
+
+  .shop-shell {
+    width: 100%;
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 40px 5%;
+  }
+
+  .shop-title {
+    display: inline-block;
+    padding: 16px 20px;
+    background-color: var(--red);
+    color: var(--white);
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+
+ .shop-card {
+  background: var(--primary-gray);
+  border: var(--border-strong);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+  .shop-card-image-wrap {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--white);
+  border-bottom: var(--border-strong);
+  line-height: 0;
+}
+
+ .shop-card-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  object-fit: cover;
+  object-position: center;
+}
+
+.shop-card-body {
+  padding: 24px;
+  background: var(--primary-gray);
+  color: var(--white);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+  .shop-card-body h2 {
+    font-size: clamp(1.8rem, 3vw, 2.5rem);
+    line-height: 0.95;
+    margin-bottom: 12px;
+    color: var(--white);
+    text-transform: uppercase;
+  }
+
+  .shop-card-body p {
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+
+  .shop-card-price {
+    display: inline-block;
+    margin-bottom: 18px;
+    font-weight: 800;
+    color: var(--white);
+  }
+
+  .shop-card-actions {
+    margin-top: auto;
+    padding-top: 8px;
+  }
+
+  .shop-button,
+  .shop-button-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 20px;
+    border: 2px solid var(--white);
+    text-decoration: none;
+    transition:
+      transform 0.2s ease,
+      background-color 0.2s ease,
+      color 0.2s ease;
+    font-weight: 700;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .shop-button {
+    background: transparent;
+    color: var(--white);
+  }
+
+  .shop-button:hover {
+    transform: translateY(-2px);
+    background-color: var(--white);
+    color: var(--red);
+  }
+
+  .shop-button-secondary {
+    background: var(--white);
+    color: var(--primary-gray);
+    border-color: var(--black);
+  }
+
+  .shop-button-secondary:hover {
+    transform: translateY(-2px);
+    background: var(--red);
+    color: var(--white);
+  }
+
+  .shop-notice {
+    border: var(--border-strong);
+    background: var(--primary-gray);
+    color: var(--white);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+
+  .product-detail {
+    width: 100%;
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 40px 5%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .product-visual-panel,
+  .product-info-panel {
+    border: var(--border-strong);
+  }
+
+  .product-visual-panel {
+    background: var(--red);
+    padding: 24px;
+  }
+
+  .product-info-panel {
+    background: var(--primary-gray);
+    color: var(--white);
+    padding: 32px;
+  }
+
+  .product-image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+    background: var(--white);
+    border: var(--border-strong);
+  }
+
+  .product-info-panel h1 {
+    font-family: "Herderrock Impact", Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    font-size: clamp(2.5rem, 5vw, 4.2rem);
+    line-height: 0.92;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    color: var(--white);
+  }
+
+  .product-info-panel p {
+    line-height: 1.8;
+    margin-bottom: 16px;
+  }
+
+  .field {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+
+  label {
+    font-weight: 700;
+    color: var(--white);
+  }
+
+  select,
+  input {
+    width: 100%;
+    padding: 14px;
+    border: 2px solid var(--black);
+    background: var(--white);
+    color: var(--primary-gray);
+    font: inherit;
+  }
+
+  .cart-shell {
+    width: 100%;
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 40px 5%;
+  }
+
+  .cart-panel {
+    border: var(--border-strong);
+    background: var(--primary-gray);
+    color: var(--white);
+  }
+
+  .cart-panel-inner {
+    padding: 24px;
+  }
+
+  .cart-row {
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(249, 238, 213, 0.2);
+  }
+
+  .muted {
+    opacity: 0.8;
+  }
+
+  @media only screen and (max-width: 1100px) {
+    .shop-hero-card,
+    .product-detail {
+      grid-template-columns: 1fr;
+    }
+
+    .shop-hero-content {
+      padding: 40px 30px;
+    }
+
+    .shop-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media only screen and (max-width: 768px) {
+    .header-actions {
+      top: 16px;
+      right: 16px;
+      gap: 10px;
+    }
+
+    .ticket-button,
+    .cart-button {
+      min-height: 46px;
+      padding: 0 14px;
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+    }
+
+    .ticket-label-desktop {
+      display: none;
+    }
+
+    .ticket-label-mobile {
+      display: inline;
+    }
+
+    .shop-hero-shell,
+    .shop-shell,
+    .product-detail,
+    .cart-shell {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .shop-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .shop-hero-visual {
+      min-height: 220px;
+      padding: 14px;
+    }
+
+    .shop-hero-stamp {
+      min-width: 0;
+      width: 100%;
+      max-width: 360px;
+      padding: 22px 16px;
+      border-width: 2px;
+      margin: 0 auto;
+    }
+
+    .shop-hero-content {
+      padding: 24px 20px;
+    }
+
+    .shop-card,
+    .product-visual-panel,
+    .product-info-panel,
+    .cart-panel,
+    .shop-notice,
+    .shop-hero-card {
+      border-width: 2px;
+    }
+
+    .shop-card-image-wrap,
+    .product-image {
+      border-width: 2px;
+    }
+
+.shop-card-image-wrap {
+  aspect-ratio: 3 / 4;
+  min-height: 0;
+  padding: 0;
+}
+  }
+.product-thumbs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+
+.product-thumb {
+  padding: 0;
+  border: 2px solid var(--black);
+  background: var(--white);
+  cursor: pointer;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.product-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  object-position: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+</style>

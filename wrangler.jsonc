@@ -1,0 +1,44 @@
+{
+  "name": "herderrock-shop",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-04-21",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "secrets": {
+    "required": [
+      "RESEND_API_KEY",
+      "STRIPE_SECRET_KEY",
+      "SUPABASE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+    ],
+  },
+  "vars": {
+    "ORDER_CONFIRMATION_FROM": "Herderrock Shop <info@herderrock.be>",
+    "ORDER_CONFIRMATION_REPLY_TO": "info@herderrock.be",
+    "SITE_URL": "https://shop.herderrock.be",
+    "PUBLIC_SENTRY_DSN": "https://a195f763b4adf64adf72cecc5709fe8b@o4511263134973952.ingest.de.sentry.io/4511263137661008",
+    "PUBLIC_SENTRY_ENVIRONMENT": "production",
+    "PUBLIC_SUPABASE_URL": "https://cpibzcaictyyearlhzwh.supabase.co",
+    "PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_CD6y7ep2xeyDb3_fiVYP9g_SYQgqW1P",
+    "SHOP_CLOSES_AT": "2026-08-15T23:59:59+02:00",
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "9bca50fb1339439dad59c19a65170061",
+    },
+  ],
+  "routes": [
+    {
+      "pattern": "shop.herderrock.be",
+      "zone_name": "herderrock.be",
+      "custom_domain": true,
+    },
+  ],
+}
