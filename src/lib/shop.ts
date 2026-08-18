@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { normalizeProductImageUrl } from "./image-url";
 
 export type ProductImage = {
   id: string;
@@ -48,11 +49,6 @@ export type DeliveryZone = {
   is_active: boolean;
 };
 
-export function isShopClosed() {
-  const closeAt = new Date(import.meta.env.SHOP_CLOSES_AT);
-  return new Date() > closeAt;
-}
-
 export function formatPrice(cents: number) {
   return new Intl.NumberFormat("nl-BE", {
     style: "currency",
@@ -100,12 +96,18 @@ export async function getActiveProducts(): Promise<Product[]> {
 
   return (data ?? []).map((product: any) => ({
     ...product,
+    image_url: normalizeProductImageUrl(product.image_url),
     variants: (product.variants ?? []).filter(
       (v: ProductVariant) => v.is_active,
     ),
-    images: [...(product.images ?? [])].sort(
-      (a, b) => a.sort_order - b.sort_order,
-    ),
+    images: [...(product.images ?? [])]
+      .map((image) => ({
+        ...image,
+        image_url:
+          normalizeProductImageUrl(image.image_url) ||
+          "/images/tshirt-placeholder.jpg",
+      }))
+      .sort((a, b) => a.sort_order - b.sort_order),
   }));
 }
 
@@ -151,10 +153,16 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
   return {
     ...data,
+    image_url: normalizeProductImageUrl(data.image_url),
     variants: (data.variants ?? []).filter((v: ProductVariant) => v.is_active),
-    images: [...(data.images ?? [])].sort(
-      (a, b) => a.sort_order - b.sort_order,
-    ),
+    images: [...(data.images ?? [])]
+      .map((image) => ({
+        ...image,
+        image_url:
+          normalizeProductImageUrl(image.image_url) ||
+          "/images/tshirt-placeholder.jpg",
+      }))
+      .sort((a, b) => a.sort_order - b.sort_order),
   };
 }
 

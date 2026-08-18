@@ -1,13 +1,12 @@
 ---
 import type { Product } from "../lib/shop";
-import { formatPrice, isShopClosed } from "../lib/shop";
+import { formatPrice } from "../lib/shop";
 
 interface Props {
   product: Product;
 }
 
 const { product } = Astro.props;
-const closed = isShopClosed();
 
 const cheapestVariant = [...(product.variants ?? [])].sort(
   (a, b) => a.price_cents - b.price_cents
@@ -39,11 +38,7 @@ const primaryImage =
     )}
 
     <div class="shop-card-actions">
-      {closed ? (
-        <span class="shop-button-secondary">Webshop gesloten</span>
-      ) : (
-        <a class="shop-button" href={`/producten/${product.slug}`}>Bekijk product</a>
-      )}
+      <a class="shop-button" href={`/producten/${product.slug}`}>Bekijk product</a>
     </div>
   </div>
 </article>

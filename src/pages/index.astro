@@ -1,7 +1,7 @@
 ---
 import ShopLayout from "../layouts/ShopLayout.astro";
 import ProductCard from "../components/ProductCard.astro";
-import { getActiveProducts, isShopClosed } from "../lib/shop";
+import { getActiveProducts } from "../lib/shop";
 
 let products = [];
 let productsError: string | null = null;
@@ -13,25 +13,16 @@ try {
     error instanceof Error ? error.message : "Kon producten niet laden.";
 }
 
-const closed = isShopClosed();
 ---
 
 <ShopLayout title="Herderrock Shop" showHero={true}>
   <main class="shop-shell">
     <h1 class="shop-title">Shop</h1>
 
-    {closed && (
-      <div class="shop-notice">
-        De webshop is gesloten. Bestellen kon tot en met 15 augustus.
-      </div>
-    )}
-
-    {!closed && (
-      <div class="shop-notice">
-        Afhalen kan op 3, 4 of 5 september om 19u. Levering enkel in 9300, 9308,
-        9310 en 9320.
-      </div>
-    )}
+    <div class="shop-notice">
+      Afhalen kan op 3, 4 of 5 september om 19u. Levering enkel in 9300, 9308,
+      9310 en 9320.
+    </div>
 
     {productsError && (
       <div class="shop-notice">

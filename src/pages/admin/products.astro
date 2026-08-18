@@ -235,6 +235,85 @@ import ShopLayout from "../../layouts/ShopLayout.astro";
       return true;
     }
 
+    async function updateProductDescription(
+      productId,
+      description,
+      buttonToDisable = null,
+    ) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/update-description", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          productId,
+          description,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon productbeschrijving niet opslaan.");
+        return false;
+      }
+
+      return true;
+    }
+
+    async function deleteProduct(productId, buttonToDisable = null) {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        window.location.href = "/admin/login";
+        return false;
+      }
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = true;
+      }
+
+      const response = await fetch("/api/admin/products/delete-product", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          productId,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (buttonToDisable instanceof HTMLButtonElement) {
+        buttonToDisable.disabled = false;
+      }
+
+      if (!response.ok) {
+        alert(result?.error || "Kon product niet verwijderen.");
+        return false;
+      }
+
+      return true;
+    }
+
     async function toggleVariantActive(variantId, isActive, buttonToDisable = null) {
       const accessToken = await getAccessToken();
 
@@ -543,6 +622,7 @@ import ShopLayout from "../../layouts/ShopLayout.astro";
           const safePrimaryImage = escapeHtml(primaryImage);
           const safeProductName = escapeHtml(product.name);
           const safeProductSlug = escapeHtml(product.slug);
+          const safeDescription = escapeHtml(product.description || "");
 
           const imagesHtml = (product.images || [])
             .map((image) => {
@@ -697,7 +777,7 @@ import ShopLayout from "../../layouts/ShopLayout.astro";
                         </span>
                       </div>
 
-                      <div>
+                      <div style="display:flex; gap:12px; flex-wrap:wrap;">
                         <button
                           class="shop-button-secondary"
                           data-toggle-product="${product.id}"
@@ -705,7 +785,38 @@ import ShopLayout from "../../layouts/ShopLayout.astro";
                         >
                           ${product.is_active ? "Product uitschakelen" : "Product activeren"}
                         </button>
+                        <button
+                          class="shop-button-secondary"
+                          data-delete-product="${product.id}"
+                        >
+                          Product verwijderen
+                        </button>
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top:24px; padding-top:16px; border-top:2px solid rgba(249, 238, 213, 0.2);">
+                  <strong>Beschrijving</strong>
+
+                  <div style="margin-top:12px;">
+                    <div class="field" style="margin-bottom:0;">
+                      <label for="description-${product.id}">Productbeschrijving</label>
+                      <textarea
+                        id="description-${product.id}"
+                        rows="4"
+                        data-description-input="${product.id}"
+                        style="width:100%;"
+                      >${safeDescription}</textarea>
+                    </div>
+
+                    <div style="margin-top:12px;">
+                      <button
+                        class="shop-button-secondary"
+                        data-save-description="${product.id}"
+                      >
+                        Beschrijving opslaan
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1003,6 +1114,50 @@ import ShopLayout from "../../layouts/ShopLayout.astro";
           const isActive = nextActiveValue === "true";
 
           const ok = await toggleProductActive(productId, isActive, button);
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-save-description]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const productId = button.getAttribute("data-save-description");
+          const input = productsRoot.querySelector(
+            `[data-description-input="${productId}"]`,
+          );
+
+          if (!productId || !(input instanceof HTMLTextAreaElement)) {
+            return;
+          }
+
+          const description = input.value.trim();
+          const ok = await updateProductDescription(productId, description, button);
+
+          if (ok) {
+            await loadProductsAdmin();
+          }
+        });
+      });
+
+      productsRoot.querySelectorAll("[data-delete-product]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const productId = button.getAttribute("data-delete-product");
+
+          if (!productId) {
+            return;
+          }
+
+          const confirmed = window.confirm(
+            "Dit product echt verwijderen? Alle varianten en afbeeldingen zonder bestellingen worden mee verwijderd.",
+          );
+
+          if (!confirmed) {
+            return;
+          }
+
+          const ok = await deleteProduct(productId, button);
+
           if (ok) {
             await loadProductsAdmin();
           }

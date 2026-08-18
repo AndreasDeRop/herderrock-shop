@@ -1,5 +1,6 @@
 import { requireAdmin } from "../../require-admin";
 import { json } from "../../security-headers";
+import { normalizeProductImageUrl } from "../../../lib/image-url";
 
 export const onRequestGet: PagesFunction = async (context) => {
   const result = await requireAdmin(context);
@@ -47,9 +48,15 @@ export const onRequestGet: PagesFunction = async (context) => {
 
   const products = (data || []).map((product: any) => ({
     ...product,
-    images: [...(product.images || [])].sort(
-      (a, b) => a.sort_order - b.sort_order,
-    ),
+    image_url: normalizeProductImageUrl(product.image_url),
+    images: [...(product.images || [])]
+      .map((image) => ({
+        ...image,
+        image_url:
+          normalizeProductImageUrl(image.image_url) ||
+          "/images/tshirt-placeholder.jpg",
+      }))
+      .sort((a, b) => a.sort_order - b.sort_order),
     variants: [...(product.variants || [])].sort((a, b) => {
       const aSize = a.size || "";
       const bSize = b.size || "";

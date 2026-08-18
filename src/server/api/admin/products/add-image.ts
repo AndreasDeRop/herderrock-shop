@@ -1,5 +1,6 @@
 import { requireAdmin } from "../../../require-admin";
 import { json } from "../../../security-headers";
+import { normalizeProductImageUrl } from "../../../../lib/image-url";
 
 export const onRequestPost: PagesFunction = async (context) => {
   const result = await requireAdmin(context);
@@ -14,7 +15,7 @@ export const onRequestPost: PagesFunction = async (context) => {
     const body = await context.request.json();
 
     const productId = String(body.productId || "").trim();
-    const imageUrl = String(body.imageUrl || "").trim();
+    const imageUrl = normalizeProductImageUrl(body.imageUrl);
     const altText = String(body.altText || "").trim();
     const sortOrder = Number(body.sortOrder);
 

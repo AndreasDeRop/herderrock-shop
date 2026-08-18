@@ -1,6 +1,6 @@
 ---
 import ShopLayout from "../../layouts/ShopLayout.astro";
-import { getProductBySlug, formatPrice, isShopClosed } from "../../lib/shop";
+import { getProductBySlug, formatPrice } from "../../lib/shop";
 
 const { slug } = Astro.params;
 
@@ -9,7 +9,6 @@ if (!slug) {
 }
 
 const product = await getProductBySlug(slug);
-const closed = isShopClosed();
 const variants = product?.variants ?? [];
 const images = product?.images ?? [];
 const primaryImage =
@@ -64,38 +63,34 @@ if (!product) {
       <h1>{product.name}</h1>
       <p>{product.description}</p>
 
-      {closed ? (
-        <div class="shop-notice">De webshop is gesloten.</div>
-      ) : (
-        <form id="add-to-cart-form">
-          <div class="field">
-            <label for="variant">Maat</label>
-            <select id="variant" name="variantId" required>
-              <option value="">Kies een maat</option>
-              {variants.map((variant) => (
-                <option
-                  value={variant.id}
-                  data-price={variant.price_cents}
-                  data-label={variant.label}
-                  disabled={variant.stock_quantity <= 0}
-                >
-                  {variant.label} — {formatPrice(variant.price_cents)}
-                  {variant.stock_quantity <= 0 ? " (uitverkocht)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+      <form id="add-to-cart-form">
+        <div class="field">
+          <label for="variant">Maat</label>
+          <select id="variant" name="variantId" required>
+            <option value="">Kies een maat</option>
+            {variants.map((variant) => (
+              <option
+                value={variant.id}
+                data-price={variant.price_cents}
+                data-label={variant.label}
+                disabled={variant.stock_quantity <= 0}
+              >
+                {variant.label} — {formatPrice(variant.price_cents)}
+                {variant.stock_quantity <= 0 ? " (uitverkocht)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <div class="field">
-            <label for="quantity">Aantal</label>
-            <input id="quantity" name="quantity" type="number" min="1" value="1" required />
-          </div>
+        <div class="field">
+          <label for="quantity">Aantal</label>
+          <input id="quantity" name="quantity" type="number" min="1" value="1" required />
+        </div>
 
-          <button type="submit" class="shop-button">Toevoegen aan winkelmandje</button>
-         <a class="shop-button" href="/">Terug naar shop</a>
+        <button type="submit" class="shop-button">Toevoegen aan winkelmandje</button>
+       <a class="shop-button" href="/">Terug naar shop</a>
 
-        </form>
-      )}
+      </form>
     </div>
   </section>
 

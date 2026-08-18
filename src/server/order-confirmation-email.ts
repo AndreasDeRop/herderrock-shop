@@ -36,12 +36,26 @@ type OrderEmailData = {
   }>;
 };
 
+function normalizeForMatch(value: string) {
+  return value
+    .normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export function buildOrderConfirmationEmail(order: OrderEmailData) {
   const greetingName = order.customerName.trim() || "daar";
+  const has2026Tshirt = order.items.some((item) => {
+    const productName = normalizeForMatch(item.productName);
+    return productName.includes("2026") && productName.includes("shirt");
+  });
   const lines = order.items.map((item) => {
     const variantPart = item.variantName ? ` (${item.variantName})` : "";
     return `- ${item.productName}${variantPart} x ${item.quantity}: ${formatPrice(item.lineTotalCents)}`;
   });
+  const tshirtDeliveryNote = has2026Tshirt
+    ? "Als jouw T-shirt nog beschikbaar is van de eerste druk, dan zullen we deze komen leveren in regio Groot-Aalst. Woon je buiten Groot-Aalst of dient jouw T-shirt nog bijbesteld te worden, dan zal deze enkel af te halen zijn tijdens het Herderrock-weekend."
+    : null;
 
   const fulfillmentText =
     order.fulfillmentType === "pickup"
@@ -91,6 +105,7 @@ export function buildOrderConfirmationEmail(order: OrderEmailData) {
     "",
     `Ontvangst: ${fulfillmentText}`,
     "",
+    ...(tshirtDeliveryNote ? [tshirtDeliveryNote, ""] : []),
     "We sturen je later nog verdere info indien nodig.",
     "",
     "Tot binnenkort,",
@@ -124,6 +139,12 @@ export function buildOrderConfirmationEmail(order: OrderEmailData) {
 
       <p style="margin:6px 0;"><strong>Subtotaal:</strong> ${escapeHtml(formatPrice(order.subtotalCents))}</p>
       <p style="margin:6px 0 24px;"><strong>Totaal:</strong> ${escapeHtml(formatPrice(order.totalCents))}</p>
+
+      ${
+        tshirtDeliveryNote
+          ? `<p style="margin:0 0 24px;"><strong>Opgelet:</strong> ${escapeHtml(tshirtDeliveryNote)}</p>`
+          : ""
+      }
 
       <p>We sturen je later nog verdere info indien nodig.</p>
       <p>Tot binnenkort,<br />Herderrock</p>

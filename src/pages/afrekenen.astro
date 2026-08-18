@@ -1,10 +1,9 @@
   ---
   import ShopLayout from "../layouts/ShopLayout.astro";
   import { getCheckoutData } from "../lib/checkout";
-  import { getAllowedPostalCodes, getPostalCodeVillages, isShopClosed } from "../lib/shop";
+  import { getAllowedPostalCodes, getPostalCodeVillages } from "../lib/shop";
 
   const { pickupSlots, deliveryZones } = await getCheckoutData();
-  const closed = isShopClosed();
 
   const postalCodeVillages = getPostalCodeVillages(deliveryZones);
   const allowedPostalCodes = getAllowedPostalCodes(deliveryZones);
@@ -15,85 +14,79 @@
     <main class="cart-shell">
       <h1 class="shop-title">Afrekenen</h1>
 
-      {closed ? (
-        <div class="shop-notice">
-          De webshop is gesloten. Bestellen kon tot en met 15 augustus.
-        </div>
-      ) : (
-        <div class="cart-panel">
-          <div class="cart-panel-inner">
-            <form id="checkout-form">
+      <div class="cart-panel">
+        <div class="cart-panel-inner">
+          <form id="checkout-form">
+            <div class="field">
+              <label for="customerName">Naam</label>
+              <input id="customerName" name="customerName" type="text" required />
+            </div>
+
+            <div class="field">
+              <label for="customerEmail">E-mail</label>
+              <input id="customerEmail" name="customerEmail" type="email" required />
+            </div>
+
+            <div class="field">
+              <label for="customerPhone">Telefoon</label>
+              <input id="customerPhone" name="customerPhone" type="tel" />
+            </div>
+
+            <div class="field">
+              <label for="fulfillmentType">Ontvangst</label>
+              <select id="fulfillmentType" name="fulfillmentType" required>
+                <option value="">Kies afhalen of levering</option>
+                <option value="pickup">Afhalen</option>
+                <option value="delivery">Levering</option>
+              </select>
+            </div>
+
+            <div id="pickup-fields" style="display:none;">
               <div class="field">
-                <label for="customerName">Naam</label>
-                <input id="customerName" name="customerName" type="text" required />
+                <label for="pickupSlotId">Afhaaldatum</label>
+                <select id="pickupSlotId" name="pickupSlotId">
+                  <option value="">Kies een afhaaldatum</option>
+                  {pickupSlots.map((slot) => (
+                    <option value={slot.id}>{slot.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div id="delivery-fields" style="display:none;">
+              <div class="field">
+                <label for="addressLine1">Straat + huisnummer</label>
+                <input id="addressLine1" name="addressLine1" type="text" />
               </div>
 
               <div class="field">
-                <label for="customerEmail">E-mail</label>
-                <input id="customerEmail" name="customerEmail" type="email" required />
-              </div>
-
-              <div class="field">
-                <label for="customerPhone">Telefoon</label>
-                <input id="customerPhone" name="customerPhone" type="tel" />
-              </div>
-
-              <div class="field">
-                <label for="fulfillmentType">Ontvangst</label>
-                <select id="fulfillmentType" name="fulfillmentType" required>
-                  <option value="">Kies afhalen of levering</option>
-                  <option value="pickup">Afhalen</option>
-                  <option value="delivery">Levering</option>
+                <label for="postalCode">Postcode</label>
+                <select id="postalCode" name="postalCode">
+                  <option value="">Kies een postcode</option>
+                  {allowedPostalCodes.map((postalCode) => (
+                    <option value={postalCode}>
+                      {postalCode}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div id="pickup-fields" style="display:none;">
-                <div class="field">
-                  <label for="pickupSlotId">Afhaaldatum</label>
-                  <select id="pickupSlotId" name="pickupSlotId">
-                    <option value="">Kies een afhaaldatum</option>
-                    {pickupSlots.map((slot) => (
-                      <option value={slot.id}>{slot.label}</option>
-                    ))}
-                  </select>
-                </div>
+              <div class="field">
+                <label for="city">Deelgemeente</label>
+                <select id="city" name="city">
+                  <option value="">Kies eerst een postcode</option>
+                </select>
               </div>
+            </div>
 
-              <div id="delivery-fields" style="display:none;">
-                <div class="field">
-                  <label for="addressLine1">Straat + huisnummer</label>
-                  <input id="addressLine1" name="addressLine1" type="text" />
-                </div>
+            <div id="cart-summary" class="shop-notice" style="margin-top:24px;">
+              Winkelmandje wordt geladen...
+            </div>
 
-                <div class="field">
-                  <label for="postalCode">Postcode</label>
-                  <select id="postalCode" name="postalCode">
-                    <option value="">Kies een postcode</option>
-                    {allowedPostalCodes.map((postalCode) => (
-                      <option value={postalCode}>
-                        {postalCode}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div class="field">
-                  <label for="city">Deelgemeente</label>
-                  <select id="city" name="city">
-                    <option value="">Kies eerst een postcode</option>
-                  </select>
-                </div>
-              </div>
-
-              <div id="cart-summary" class="shop-notice" style="margin-top:24px;">
-                Winkelmandje wordt geladen...
-              </div>
-
-              <button type="submit" class="shop-button">Verder naar betaling</button>
-            </form>
-          </div>
+            <button type="submit" class="shop-button">Verder naar betaling</button>
+          </form>
         </div>
-      )}
+      </div>
     </main>
 
     <script define:vars={{ allowedPostalCodes, postalCodeVillages }}>

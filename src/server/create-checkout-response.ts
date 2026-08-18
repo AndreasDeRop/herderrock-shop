@@ -36,25 +36,12 @@ export async function createCheckoutResponse({
     console.log("Checkout create: request ontvangen");
     const body = await request.json();
     const requestOrigin = new URL(request.url).origin;
-    const shopClosesAt =
-      env.SHOP_CLOSES_AT ??
-      cloudflareEnv.SHOP_CLOSES_AT ??
-      process.env.SHOP_CLOSES_AT;
     const siteUrl =
       env.SITE_URL ?? cloudflareEnv.SITE_URL ?? process.env.SITE_URL;
     const checkoutBaseUrl = requestOrigin || siteUrl;
 
-    if (!shopClosesAt) {
-      return json({ error: "SHOP_CLOSES_AT ontbreekt op de server." }, 500);
-    }
-
     if (!checkoutBaseUrl) {
       return json({ error: "SITE_URL ontbreekt op de server." }, 500);
-    }
-
-    const closeAt = new Date(shopClosesAt);
-    if (new Date() > closeAt) {
-      return json({ error: "De webshop is gesloten." }, 400);
     }
 
     const cart = Array.isArray(body.cart) ? (body.cart as CartItem[]) : [];

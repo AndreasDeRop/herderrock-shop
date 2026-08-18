@@ -1,5 +1,6 @@
 import { requireAdmin } from "../../../require-admin";
 import { json } from "../../../security-headers";
+import { normalizeProductImageUrl } from "../../../../lib/image-url";
 
 function slugify(value: string) {
   return value
@@ -25,7 +26,7 @@ export const onRequestPost: PagesFunction = async (context) => {
     const name = String(body.name || "").trim();
     const slugInput = String(body.slug || "").trim();
     const description = String(body.description || "").trim();
-    const imageUrl = String(body.imageUrl || "").trim();
+    const imageUrl = normalizeProductImageUrl(body.imageUrl);
     const isActive = body.isActive !== false;
 
     const createFirstVariant = Boolean(body.createFirstVariant);
@@ -63,7 +64,7 @@ export const onRequestPost: PagesFunction = async (context) => {
         name,
         slug,
         description: description || null,
-        image_url: imageUrl || null,
+        image_url: imageUrl,
         is_active: isActive,
       })
       .select(
