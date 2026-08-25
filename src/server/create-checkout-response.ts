@@ -8,6 +8,10 @@ import {
 } from "./sentry";
 import { createStripe } from "./stripe";
 import { getMatchingDeliveryZone } from "../lib/shop";
+import {
+  calculateCartPricing,
+  DELIVERY_MIN_SUBTOTAL_CENTS,
+} from "../lib/cart-pricing";
 type CartItem = {
   variantId: string;
   quantity: number;
@@ -137,14 +141,13 @@ export async function createCheckoutResponse({
       (variants || []).map((variant: any) => [variant.id, variant]),
     );
 
-    let subtotalCents = 0;
-    const normalizedItems: Array<{
+    const normalizedItemsBase: Array<{
       variant_id: string;
       product_name_snapshot: string;
+      product_slug_snapshot: string;
       variant_name_snapshot: string;
       unit_price_cents: number;
       quantity: number;
-      line_total_cents: number;
     }> = [];
 
     for (const item of cart) {
@@ -171,18 +174,34 @@ export async function createCheckoutResponse({
         );
       }
 
-      const lineTotal = variant.price_cents * quantity;
-      subtotalCents += lineTotal;
-
-      normalizedItems.push({
+      normalizedItemsBase.push({
         variant_id: variant.id,
         product_name_snapshot: variant.products.name,
+        product_slug_snapshot: variant.products.slug,
         variant_name_snapshot: variant.label,
         unit_price_cents: variant.price_cents,
         quantity,
-        line_total_cents: lineTotal,
       });
     }
+
+    const pricing = calculateCartPricing(
+      normalizedItemsBase.map((item) => ({
+        productName: item.product_name_snapshot,
+        productSlug: item.product_slug_snapshot,
+        unitPriceCents: item.unit_price_cents,
+        quantity: item.quantity,
+      })),
+    );
+
+    const subtotalCents = pricing.subtotalCents;
+    const normalizedItems = normalizedItemsBase.map((item, index) => ({
+      variant_id: item.variant_id,
+      product_name_snapshot: item.product_name_snapshot,
+      variant_name_snapshot: item.variant_name_snapshot,
+      unit_price_cents: pricing.pricedItems[index].effectiveUnitPriceCents,
+      quantity: item.quantity,
+      line_total_cents: pricing.pricedItems[index].lineTotalCents,
+    }));
 
     let deliveryFeeCents = 0;
 
@@ -211,6 +230,15 @@ export async function createCheckoutResponse({
     if (fulfillmentType === "delivery") {
       if (!postalCode || !city) {
         return json({ error: "Vul het leveradres volledig in." }, 400);
+      }
+
+      if (subtotalCents < DELIVERY_MIN_SUBTOTAL_CENTS) {
+        return json(
+          {
+            error: "Levering is pas beschikbaar vanaf een bestelling van € 15,00.",
+          },
+          400,
+        );
       }
 
       const { data: deliveryZones, error: deliveryError } =

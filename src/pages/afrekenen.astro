@@ -1,5 +1,10 @@
   ---
   import ShopLayout from "../layouts/ShopLayout.astro";
+  import {
+    DELIVERY_MIN_SUBTOTAL_CENTS,
+    SOCK_BULK_MIN_QUANTITY,
+    SOCK_BULK_PRICE_CENTS,
+  } from "../lib/cart-pricing";
   import { getCheckoutData } from "../lib/checkout";
   import { getAllowedPostalCodes, getPostalCodeVillages } from "../lib/shop";
 
@@ -37,7 +42,7 @@
               <select id="fulfillmentType" name="fulfillmentType" required>
                 <option value="">Kies afhalen of levering</option>
                 <option value="pickup">Afhalen</option>
-                <option value="delivery">Levering</option>
+                <option id="delivery-option" value="delivery">Levering</option>
               </select>
             </div>
 
@@ -89,10 +94,11 @@
       </div>
     </main>
 
-    <script define:vars={{ allowedPostalCodes, postalCodeVillages }}>
+    <script define:vars={{ allowedPostalCodes, postalCodeVillages, DELIVERY_MIN_SUBTOTAL_CENTS, SOCK_BULK_MIN_QUANTITY, SOCK_BULK_PRICE_CENTS }}>
       const fulfillmentType = document.getElementById("fulfillmentType");
       const pickupFields = document.getElementById("pickup-fields");
       const deliveryFields = document.getElementById("delivery-fields");
+      const deliveryOption = document.getElementById("delivery-option");
       const postalCodeSelect = document.getElementById("postalCode");
       const citySelect = document.getElementById("city");
       const summary = document.getElementById("cart-summary");
@@ -113,6 +119,49 @@
           currency: "EUR",
         }).format(cents / 100);
 
+      const normalizeMatchValue = (value) =>
+        String(value ?? "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+
+      const isSockProduct = (item) => {
+        const haystack = `${normalizeMatchValue(item.productName)} ${normalizeMatchValue(item.productSlug)}`;
+        return ["kous", "kousen", "sok", "sokken", "sock", "socks"].some((keyword) =>
+          haystack.includes(keyword),
+        );
+      };
+
+      const calculateCartPricing = (items) => {
+        const sockQuantity = items.reduce(
+          (total, item) => total + (isSockProduct(item) ? item.quantity : 0),
+          0,
+        );
+        const qualifiesForSockDiscount = sockQuantity >= SOCK_BULK_MIN_QUANTITY;
+        let subtotalCents = 0;
+
+        const pricedItems = items.map((item) => {
+          const effectiveUnitPriceCents =
+            isSockProduct(item) && qualifiesForSockDiscount
+              ? SOCK_BULK_PRICE_CENTS
+              : item.unitPriceCents;
+          const lineTotalCents = effectiveUnitPriceCents * item.quantity;
+          subtotalCents += lineTotalCents;
+
+          return {
+            ...item,
+            effectiveUnitPriceCents,
+            lineTotalCents,
+          };
+        });
+
+        return {
+          pricedItems,
+          subtotalCents,
+          qualifiesForSockDiscount,
+        };
+      };
+
       const renderSummary = () => {
         if (!summary) return;
 
@@ -124,27 +173,54 @@
           return;
         }
 
-        let subtotal = 0;
-
-        const rows = cart.map((item) => {
-          const lineTotal = item.unitPriceCents * item.quantity;
-          subtotal += lineTotal;
+        const pricing = calculateCartPricing(cart);
+        const rows = pricing.pricedItems.map((item) => {
+          const unitPriceLabel =
+            item.effectiveUnitPriceCents !== item.unitPriceCents
+              ? `<span class="muted">Korting: ${formatPrice(item.effectiveUnitPriceCents)} / stuk</span><br />`
+              : "";
 
           return `
             <div class="cart-row">
               <strong>${escapeHtml(item.productName)}</strong><br />
               <span>${escapeHtml(item.variantLabel)}</span><br />
               <span class="muted">Aantal: ${item.quantity}</span><br />
-              <span>${formatPrice(lineTotal)}</span>
+              ${unitPriceLabel}
+              <span>${formatPrice(item.lineTotalCents)}</span>
             </div>
           `;
         }).join("");
 
+        const deliveryNotice =
+          pricing.subtotalCents < DELIVERY_MIN_SUBTOTAL_CENTS
+            ? `<br /><span class="muted">Levering is pas mogelijk vanaf ${formatPrice(DELIVERY_MIN_SUBTOTAL_CENTS)}.</span>`
+            : "";
+        const discountNotice = pricing.qualifiesForSockDiscount
+          ? `<br /><span class="muted">Korting toegepast: vanaf 3 paar betaal je € 7,00 per paar.</span>`
+          : "";
+
         summary.innerHTML = `
           ${rows}
           <br />
-          <strong>Subtotaal: ${formatPrice(subtotal)}</strong>
+          <strong>Subtotaal: ${formatPrice(pricing.subtotalCents)}</strong>
+          ${discountNotice}
+          ${deliveryNotice}
         `;
+      };
+
+      const syncDeliveryAvailability = () => {
+        if (!(fulfillmentType instanceof HTMLSelectElement)) return;
+        if (!(deliveryOption instanceof HTMLOptionElement)) return;
+
+        const pricing = calculateCartPricing(cart);
+        const canDeliver = pricing.subtotalCents >= DELIVERY_MIN_SUBTOTAL_CENTS;
+
+        deliveryOption.disabled = !canDeliver;
+        deliveryOption.hidden = !canDeliver;
+
+        if (!canDeliver && fulfillmentType.value === "delivery") {
+          fulfillmentType.value = "pickup";
+        }
       };
 
       const toggleFulfillment = () => {
@@ -154,6 +230,7 @@
 
         pickupFields.style.display = fulfillmentType.value === "pickup" ? "block" : "none";
         deliveryFields.style.display = fulfillmentType.value === "delivery" ? "block" : "none";
+        renderSummary();
       };
 
       const syncVillages = () => {
@@ -234,6 +311,12 @@
               alert("Kies een geldige deelgemeente voor deze postcode.");
               return;
             }
+
+            const pricing = calculateCartPricing(cart);
+            if (pricing.subtotalCents < DELIVERY_MIN_SUBTOTAL_CENTS) {
+              alert(`Levering is pas mogelijk vanaf ${formatPrice(DELIVERY_MIN_SUBTOTAL_CENTS)}.`);
+              return;
+            }
           }
 
       const checkoutPayload = {
@@ -271,6 +354,7 @@
         });
       }
 
+      syncDeliveryAvailability();
       renderSummary();
       toggleFulfillment();
       syncVillages();

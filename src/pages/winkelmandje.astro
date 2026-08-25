@@ -14,6 +14,11 @@ import ShopLayout from "../layouts/ShopLayout.astro";
   </main>
 
   <script>
+    import {
+      calculateCartPricing,
+      DELIVERY_MIN_SUBTOTAL_CENTS,
+    } from "../lib/cart-pricing";
+
     const root = document.getElementById("cart-root");
     const cart = JSON.parse(localStorage.getItem("cart") || "[]");
     const escapeHtml = (value) =>
@@ -44,17 +49,30 @@ import ShopLayout from "../layouts/ShopLayout.astro";
         return;
       }
 
-      let total = 0;
+      const pricing = calculateCartPricing(cart);
 
-      const rows = cart.map((item, index) => {
-        const lineTotal = item.unitPriceCents * item.quantity;
-        total += lineTotal;
+      const rows = pricing.pricedItems.map((item, index) => {
+        const lineTotal = item.lineTotalCents;
+        const unitPriceLabel =
+          item.effectiveUnitPriceCents !== item.unitPriceCents
+            ? `<span class="muted">Korting: ${formatPrice(item.effectiveUnitPriceCents)} / stuk</span><br />`
+            : "";
 
         return `
           <div class="cart-row">
             <strong>${escapeHtml(item.productName)}</strong><br />
             <span>${escapeHtml(item.variantLabel)}</span><br />
-            <span class="muted">Aantal: ${item.quantity}</span><br />
+            <label class="muted" for="quantity-${index}">Aantal</label><br />
+            <input
+              id="quantity-${index}"
+              type="number"
+              min="1"
+              step="1"
+              value="${item.quantity}"
+              data-quantity-index="${index}"
+              style="max-width:100px; margin:6px 0 10px;"
+            /><br />
+            ${unitPriceLabel}
             <span>${formatPrice(lineTotal)}</span><br /><br />
             <button class="shop-button-secondary" data-index="${index}">Verwijderen</button>
 
@@ -62,11 +80,23 @@ import ShopLayout from "../layouts/ShopLayout.astro";
         `;
       }).join("");
 
+      const notes = [
+        pricing.qualifiesForSockDiscount
+          ? `<p class="muted">Korting toegepast: vanaf 3 paar betaal je € 7,00 per paar.</p>`
+          : "",
+        pricing.subtotalCents < DELIVERY_MIN_SUBTOTAL_CENTS
+          ? `<p class="muted">Levering is pas mogelijk vanaf ${formatPrice(DELIVERY_MIN_SUBTOTAL_CENTS)}.</p>`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("");
+
  root.innerHTML = `
   <div class="cart-panel-inner">
     ${rows}
     <br />
-    <p><strong>Totaal: ${formatPrice(total)}</strong></p>
+    <p><strong>Totaal: ${formatPrice(pricing.subtotalCents)}</strong></p>
+    ${notes}
     <br />
     <div style="display:flex; gap:12px; flex-wrap:wrap;">
       <a class="shop-button" href="/afrekenen">Verder naar afrekenen</a>
@@ -79,6 +109,26 @@ import ShopLayout from "../layouts/ShopLayout.astro";
         button.addEventListener("click", () => {
           const index = Number(button.getAttribute("data-index"));
           cart.splice(index, 1);
+          localStorage.setItem("cart", JSON.stringify(cart));
+          render();
+        });
+      });
+
+      root.querySelectorAll("[data-quantity-index]").forEach((input) => {
+        input.addEventListener("change", () => {
+          const index = Number(input.getAttribute("data-quantity-index"));
+          const nextQuantity = Number(input.value);
+
+          if (!Number.isInteger(nextQuantity) || nextQuantity < 1) {
+            input.value = String(cart[index]?.quantity ?? 1);
+            return;
+          }
+
+          if (!cart[index]) {
+            return;
+          }
+
+          cart[index].quantity = nextQuantity;
           localStorage.setItem("cart", JSON.stringify(cart));
           render();
         });

@@ -94,7 +94,7 @@ if (!product) {
     </div>
   </section>
 
-  <script define:vars={{ productId: product.id, productName: product.name }}>
+  <script define:vars={{ productId: product.id, productName: product.name, productSlug: product.slug }}>
     const form = document.getElementById("add-to-cart-form");
 
     if (form) {
@@ -123,6 +123,7 @@ if (!product) {
         const item = {
           productId,
           productName,
+          productSlug,
           variantId: selectedOption.value,
           variantLabel: selectedOption.dataset.label,
           unitPriceCents: Number(selectedOption.dataset.price),
@@ -133,6 +134,7 @@ if (!product) {
         const match = existing.find((x) => x.variantId === item.variantId);
 
         if (match) {
+          match.productSlug = match.productSlug || productSlug;
           match.quantity += quantity;
         } else {
           existing.push(item);
